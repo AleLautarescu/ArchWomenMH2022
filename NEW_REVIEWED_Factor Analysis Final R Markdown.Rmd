@@ -1,0 +1,2987 @@
+---
+title: "FactorAnalysis RMarkdown"
+author: "Alexandra Lautarescu"
+date: "29/01/2021"
+output:
+  pdf_document: 
+    toc: true 
+    toc_depth: 4
+---
+
+# SETTING UP THE R ENVIRONMENT
+
+Disabling scientific notation
+```{r}
+options(scipen=999)
+```
+
+Loading necessary packages (supressing messages from appearing in RMarkdown output)
+```{r message = FALSE}
+library(Hmisc)
+library(plyr)
+library(psych)
+library(nFactors)
+library(GPArotation)
+library(lavaan)
+library(dplyr)
+library(janitor)
+library(ggplot2)
+library(rcompanion)
+library(cowplot)
+library(harrypotter)
+library(pastecs)
+library(tidyr)
+library(reshape2)
+library(effsize)
+library(MBESS)
+library(semTools)
+library(knitr)
+library(semPlot)
+library(equaltestMI)
+```
+
+Qualtrics data refers to the high risk prenatal sample. 
+dHCP prenatal / fetal / antenatal - refers to the community prenatal sample
+dHCP postnatal / neonatal - refers to the community postnatal sample 
+
+# QUALTRICS DATA  
+
+Loading dataframe for qualtrics data 
+```{r}
+data_qualtrics <-read.csv("data_qualtrics.csv", header=TRUE, na.strings=c("","NA", " ", "not known"))
+```
+
+## Initial descriptives & Data prep - Qualtrics data 
+
+Describing dataframe. Hiding results from RMarkdown (as it would take up too much space)
+```{r results=FALSE}
+describe(data_qualtrics) 
+```
+
+Changing type for one variable
+```{r}
+data_qualtrics$partticipantID <-as.character(data_qualtrics$partticipantID)
+```
+
+**Creating a dataframe with categorical variables for descriptive purposes only**
+```{r}
+data_qualtrics2 <- data_qualtrics
+data_qualtrics2$EPDS_1 <- factor(data_qualtrics2$EPDS_1, levels=c(0,1,2,3),
+                                labels=c("As much as..", "Not quite", "Definitely not", "Not at all"))
+
+data_qualtrics2$EPDS_2 <- factor(data_qualtrics2$EPDS_2, levels=c(0,1,2,3),
+                                labels=c("As much as..", "Rather less", "Definitely less", "Hardly"))
+
+data_qualtrics2$EPDS_3 <- factor(data_qualtrics2$EPDS_3, levels=c(0,1,2,3),
+                                labels=c("Never", "Not often", "Sometimes", "Yes, most")) 
+
+data_qualtrics2$EPDS_4 <- factor(data_qualtrics2$EPDS_4, levels=c(0,1,2,3),
+                                labels=c("No", "Hardly", "Sometimes", "Yes"))                   
+
+data_qualtrics2$EPDS_5 <- factor(data_qualtrics2$EPDS_5, levels=c(0,1,2,3),
+                                labels=c("Not at all", "Not much", "Sometimes", "Yes"))   
+
+data_qualtrics2$EPDS_6 <- factor(data_qualtrics2$EPDS_6, levels=c(0,1,2,3),
+                                labels=c("No", "No, most time..", "Sometimes", "Yes"))   
+
+data_qualtrics2$EPDS_7 <- factor(data_qualtrics2$EPDS_7, levels=c(0,1,2,3),
+                                labels=c("No", "Not very", "Sometimes", "Yes"))
+
+data_qualtrics2$EPDS_8 <- factor(data_qualtrics2$EPDS_8, levels=c(0,1,2,3),
+                                labels=c("No", "Not very", "Often", "Yes"))
+
+data_qualtrics2$EPDS_9 <- factor(data_qualtrics2$EPDS_9, levels=c(0,1,2,3),
+                                labels=c("No", "Occasionally", "Often", "Yes"))
+
+data_qualtrics2$EPDS_10 <- factor(data_qualtrics2$EPDS_10, levels=c(0,1,2,3),
+                                 labels=c("Never", "Hardly", "Sometimes", "Yes"))
+```
+
+Checking structure of new dataframe.
+```{r results=FALSE}
+str(data_qualtrics2) 
+```
+
+Calculating % for frequency of response for each answer (manually just to be sure)
+```{r}
+summary(data_qualtrics2$EPDS_1)
+```
+Calculating percentages 
+7100/266 = 26.69 %  
+13400/266 = 50.37 %  
+5600/266 = 21.05 %  
+500/266 = 1.87  %  
+
+```{r}
+summary(data_qualtrics2$EPDS_2)
+```
+
+4500/266 = 16.91  %  
+11900/266 = 44.73 %  
+8000/266 = 30.07 %  
+2200/266 = 8.27 %  
+
+```{r}
+summary(data_qualtrics2$EPDS_3)
+```
+
+1200/266 = 4.51 %  
+5500/266 = 20.67 %  
+12300/266 = 46.24 %  
+7600/266 = 28.57 %  
+
+```{r}
+summary(data_qualtrics2$EPDS_4)
+```
+800/266 = 3.00 %  
+2000/266 = 7.51 %  
+12800/266 = 48.12  %  
+11000/266 = 41.35 %  
+
+```{r}
+summary(data_qualtrics2$EPDS_5)
+```
+
+2000/266 = 7.51 %  
+5500/266 = 20.67 %  
+12300/266 = 46.24 %  
+6800/266 = 25.56 %  
+
+```{r}
+summary(data_qualtrics2$EPDS_6)
+```
+
+1100/266 = 4.13 %  
+4200/266 = 15.78 %  
+17200/266 = 64.66 %  
+4100/266 = 15.41 %  
+
+```{r}
+summary(data_qualtrics2$EPDS_7)
+```
+
+4400/266 = 16.54 %  
+7600/266 = 28.57 %  
+10200/266 = 38.34 %  
+4400/266 = 16.54 %  
+
+```{r}
+summary(data_qualtrics2$EPDS_8)
+```
+1500/266=5.63 %  
+7400/266=27.81 %  
+13400/266=50.37 %  
+4300/266=16.16 %  
+
+```{r}
+summary(data_qualtrics2$EPDS_9)
+```
+
+4500/266 = 16.91 %  
+10600/266 = 39.84 %  
+8600/266 = 32.33 %  
+2900/266 = 10.90 %  
+
+```{r}
+summary(data_qualtrics2$EPDS_10)
+```
+
+17600/266 = 66.16 %  
+5200/266 = 19.54 %  
+3500/266 = 13.15 %  
+300/266 = 1.12 %  
+
+To double-check that these numbers are correct, also doing this. All seems fine.
+Results hidden to save space 
+```{r results="hide", warning=FALSE, comment=FALSE, message=FALSE}
+((plyr::count(data_qualtrics$EPDS_1))*100)/266
+((plyr::count(data_qualtrics$EPDS_2))*100)/266
+((plyr::count(data_qualtrics$EPDS_3))*100)/266
+((plyr::count(data_qualtrics$EPDS_4))*100)/266
+((plyr::count(data_qualtrics$EPDS_5))*100)/266
+((plyr::count(data_qualtrics$EPDS_6))*100)/266
+((plyr::count(data_qualtrics$EPDS_7))*100)/266
+((plyr::count(data_qualtrics$EPDS_8))*100)/266
+((plyr::count(data_qualtrics$EPDS_9))*100)/266
+((plyr::count(data_qualtrics$EPDS_10))*100)/266
+```
+
+**Going back to the main database with integers instead of categories from now on**
+
+Calculating the sum of cases who scored 11 or more on the EPDS 
+```{r}
+sum(data_qualtrics$EPDS_Total>10, na.rm=TRUE)
+```
+
+Calculating the sum of cases who scored 13 or more on the EPDS 
+```{r}
+sum(data_qualtrics$EPDS_Total>12, na.rm=TRUE)
+```
+
+
+## FACTOR ANALYSIS (Qualtrics sample)
+Creating subset of dataframe with only the variables needed for EFA. 
+Then checking the structure to make sure it's alright. Results hidden to save space. 
+```{r results='hide'}
+data_qualtrics_FA <- subset(data_qualtrics, select=c(-partticipantID, -EPDS_Total, 
+                                                     -GAatScreen, -MatAgeAtScreen))
+str(data_qualtrics_FA)
+```
+
+Calculating Cronbach's alpha (hid results as outputs includes alpha for each individual question too)
+```{r results ='hide'}
+psych::alpha(data_qualtrics_FA)
+```
+
+Calculating McDonald's omega 
+```{r results ='hide'}
+ci.reliability(data_qualtrics_FA, type="omega")
+```
+
+
+Creating subset of FA database without the 10th question
+```{r results='hide'}
+data_qualtrics_FA_Less10 <- subset(data_qualtrics_FA, select=c(-EPDS_10))
+str(data_qualtrics_FA_Less10)
+```
+
+Need to create 2 subsets - one for EFA (40%) and one for CFA (60%)
+```{r results='hide'}
+set.seed(1)
+n=nrow(data_qualtrics)
+data_qualtrics_Index = sample(1:n, size=round(0.6*n), replace=FALSE)
+data_qualtrics_CFA60 = data_qualtrics_FA [data_qualtrics_Index ,]
+data_qualtrics_EFA40 = data_qualtrics_FA [-data_qualtrics_Index ,]
+str(data_qualtrics_CFA60)
+str(data_qualtrics_EFA40)
+```
+
+### EFA with Pearson correlation matrix (Qualtrics data)
+Calculating a correlation matrix and saving it 
+```{r}
+data_qualtrics_EFA40_Matrix <- cor(data_qualtrics_EFA40)
+```
+
+Displaying the correlation matrix using 2 decimal places. Checking if there are any above 9,
+to avoid multicollinearity (there are not) or any that do not correlate at all with other 
+(there are not). 
+```{r}
+round(data_qualtrics_EFA40_Matrix,2)
+```
+
+Doing Kaiser-Mayer-Olkin (KMO) measure of sampling adequacy.KMO measures of sampling 
+adequacy were >.79, well above the acceptable limit of .5.
+```{r}
+KMO(data_qualtrics_EFA40_Matrix)
+```
+
+Doing Bartlett's test of sphrericity.Bartlett’s test of sphericity p<.05 indicated that the 
+correlations between items were sufficiently large for factor analysis
+```{r}
+cortest.bartlett(data_qualtrics_EFA40_Matrix,106)
+```
+
+Calculating the determinant of the correlation matrix.  The determinant of the correlation matrix
+was greater than the necessary value of .00001. 
+```{r}
+det(data_qualtrics_EFA40_Matrix)
+```
+
+ Get eigenvalues 
+```{r}
+ev_data_qualtrics_EFA40<- eigen(cor(data_qualtrics_EFA40)) 
+ev_data_qualtrics_EFA40
+```
+
+Get scree plot .
+```{r}
+scree_data_qualtrics_EFA40  <- scree(data_qualtrics_EFA40)
+scree_data_qualtrics_EFA40
+```
+
+Doing Parallel analysis 
+Parallel analysis using fa.parallel 
+```{r}
+parallel_data_qualtrics_EFA40<- fa.parallel(data_qualtrics_EFA40_Matrix, n.obs=106, 
+                                            main="Parallel Analysis Scree Plots",fa="fa",
+                                            fm="mrfa", SMC=TRUE, quant=.95, n.iter=500)
+parallel_data_qualtrics_EFA40
+```
+
+Doing the exploratory factor analysis now 
+```{r }
+data_qualtrics_EFA40_Analysis1<-factanal(data_qualtrics_EFA40,2, 
+                                         rotation="oblimin", fm="mle")
+print(data_qualtrics_EFA40_Analysis1, digits=2, cutoff=.30, sort=FALSE)
+```
+
+```{r}
+data_qualtrics_EFA40_Analysis2<-factanal (data_qualtrics_EFA40,3, rotation="oblimin", 
+                                          fm="mrfa")
+print(data_qualtrics_EFA40_Analysis2, digits=2, cutoff=.30, sort=FALSE)
+```
+
+### EFA with Polychoric correlation matrix (Qualtrics data)
+
+Doing the above again, with a polychoric correlation matrix this time (as per Lysdottir et al.).
+The default version adds .5 correction for continuity by default. However, corrections for continuity are not advised when categorical variables have more than 2 categories. Thus, we used correct=FALSE. 
+
+```{r}
+a <- psych::polychoric(data_qualtrics_EFA40, correct=FALSE) 
+data_qualtrics_EFA40_PolychorMatrix <- a$rho
+``` 
+
+
+Displaying the correlation matrix using 2 decimal places.Checking if there are any above 9, to avoid multicollinearity (there are not) or any that don't correlate at all with other (there are not). 
+```{r}
+round(data_qualtrics_EFA40_PolychorMatrix,2)
+```
+
+Doing Kaiser-Mayer-Olkin (KMO) measure of sampling adequacy.
+KMO measures of sampling adequacy well above the acceptable limit of .5.  
+```{r}
+KMO(data_qualtrics_EFA40_PolychorMatrix)
+```
+
+Doing Bartlett's test of sphrericity (indicated that the correlations between items were sufficiently large for factor analysis)
+```{r}
+cortest.bartlett(data_qualtrics_EFA40_PolychorMatrix,106)
+```
+
+Calculating the determinant of the correlation matrix. The determinant of the correlation matrix was greater than the necessary value of .00001. 
+```{r}
+det(data_qualtrics_EFA40_PolychorMatrix)
+```
+
+ 
+Get eigenvalues and scree plot. Checking the tail end of eigenvalues to make sure all are non-negative All are >0 , which means that we have obtained a proper correlation matrix. Check eigenvalues >1
+```{r}
+ev_data_qualtrics_EFA40_Polychor<- eigen(data_qualtrics_EFA40_PolychorMatrix)
+ev_data_qualtrics_EFA40_Polychor
+```
+
+```{r}
+scree_data_qualtrics_EFA40_Polychor  <- scree(data_qualtrics_EFA40_PolychorMatrix)
+scree_data_qualtrics_EFA40_Polychor 
+```
+
+```{r}
+parallel_data_qualtrics_EFA40_Polychoric<- fa.parallel(data_qualtrics_EFA40_Matrix, n.obs=106, 
+                                                       main="Parallel Analysis Scree Plots",
+                                                       fa="fa", fm="mrfa",
+                                                       cor="poly", quant=.95, SMC=TRUE,
+                                                       n.iter=500)
+parallel_data_qualtrics_EFA40_Polychoric
+```
+
+Doing the exploratory factor analysis now 
+```{r}
+data_qualtrics_EFA40_Polychor_Analysis1<-factanal (covmat=data_qualtrics_EFA40_PolychorMatrix,
+                                                   factors=2, 
+                                                   rotation="oblimin", fm="mle")
+print(data_qualtrics_EFA40_Polychor_Analysis1, digits=2, cutoff=.30, sort=FALSE)
+```
+
+```{r}
+data_qualtrics_EFA40_Polychor_Analysis2<-factanal(covmat=data_qualtrics_EFA40_PolychorMatrix,
+                                                  factors=3, 
+                                                  rotation="oblimin", fm="mle")
+print(data_qualtrics_EFA40_Polychor_Analysis2, digits=2, cutoff=.30, sort=FALSE)
+```
+
+### CFA (Qualtrics data )
+
+Now, doing the confirmatory factor analysis. Hiding results as otherwise document would be very long 
+
+#### From EFA - 3 FACTOR MODEL
+```{r}
+data_qualtrics_CFA_Model_3f <- ' depression  =~ EPDS_7 + EPDS_8 + EPDS_9 + EPDS_10     
+              anhedonia =~ EPDS_1 + EPDS_2 
+              anxiety  =~ EPDS_3 + EPDS_4 + EPDS_5 '
+```
+
+Fitting the model with WLSMV:
+```{r}
+data_qualtrics_CFA_Model_3f_fitW <- cfa(data_qualtrics_CFA_Model_3f, 
+                                        data=data_qualtrics_CFA60,estimator="WLSMV", 
+                                        ordered=c("EPDS_1", "EPDS_2","EPDS_3","EPDS_4","EPDS_5",
+                                                  "EPDS_7","EPDS_8","EPDS_9","EPDS_10"))
+```
+
+```{r results='hide'}
+summary(data_qualtrics_CFA_Model_3f_fitW, standardized=TRUE, fit.measures=TRUE)
+```
+
+Fitting the model with MLE:
+```{r}
+data_qualtrics_CFA_Model_3f_fitM <- cfa(data_qualtrics_CFA_Model_3f, data=data_qualtrics_CFA60)
+```
+
+```{r results='hide'}
+summary(data_qualtrics_CFA_Model_3f_fitM, standardized=TRUE, fit.measures=TRUE)
+```
+
+#### From EFA - 2 FACTOR MODEL 
+```{r}
+data_qualtrics_CFA_Model_2f <- 'anhedonia =~ EPDS_1 + EPDS_2 
+                                depression =~ EPDS_3 + EPDS_5 + EPDS_6 + EPDS_7 + EPDS_8 +
+                                              EPDS_9 + EPDS_10'
+```
+
+Fitting the model with WLSMV:
+```{r results='hide'}
+data_qualtrics_CFA_Model_2f_fitW <- cfa(data_qualtrics_CFA_Model_2f, 
+                                        data=data_qualtrics_CFA60,estimator="WLSMV",
+                                        ordered=c("EPDS_1", "EPDS_2","EPDS_3","EPDS_4","EPDS_5",
+                                                  "EPDS_6","EPDS_7","EPDS_8","EPDS_9","EPDS_10"))
+
+summary(data_qualtrics_CFA_Model_2f_fitW, standardized=TRUE, fit.measures=TRUE)
+```
+
+Fitting the model with MLE:
+```{r results='hide'}
+data_qualtrics_CFA_Model_2f_fitM <- cfa(data_qualtrics_CFA_Model_2f, data=data_qualtrics_CFA60)
+
+summary(data_qualtrics_CFA_Model_2f_fitM, standardized=TRUE, fit.measures=TRUE)
+```
+
+#### ZHONG MODEL
+```{r}
+data_qualtrics_CFA_ZHONG_Model <- 'anhedonia =~ EPDS_1 + EPDS_2 
+            depression  =~ EPDS_3 + EPDS_4 + EPDS_5 + EPDS_6 + EPDS_7 + EPDS_8 + EPDS_9 + EPDS_10'     
+```
+Fitting the model with WLSMV:
+```{r results='hide'}
+data_qualtrics_CFA_ZHONG_Model_fitW <- cfa(data_qualtrics_CFA_ZHONG_Model, 
+                                           data=data_qualtrics_CFA60,estimator="WLSMV", 
+                                           ordered=c("EPDS_1", "EPDS_2","EPDS_3","EPDS_4","EPDS_5",
+                                                     "EPDS_6","EPDS_7","EPDS_8","EPDS_9","EPDS_10"))
+
+summary(data_qualtrics_CFA_ZHONG_Model_fitW, standardized=TRUE, fit.measures=TRUE)
+```
+Fitting the model with MLE:
+```{r results='hide'}
+data_qualtrics_CFA_ZHONG_Model_fitM <- cfa(data_qualtrics_CFA_ZHONG_Model, 
+                                           data=data_qualtrics_CFA60)
+
+summary(data_qualtrics_CFA_ZHONG_Model_fitM, standardized=TRUE, fit.measures=TRUE)
+```
+
+#### BROWERS MODEL
+```{r}
+data_qualtrics_CFA_BROWERS_Model <- ' depression  =~ EPDS_1 + EPDS_2 + EPDS_8
+                                    anxiety =~ EPDS_3 + EPDS_4 + EPDS_5
+                                    selfharm =~EPDS_10'     
+```
+Fitting the model with WLSMV:
+```{r results='hide'}
+data_qualtrics_CFA_BROWERS_Model_fitW <- cfa(data_qualtrics_CFA_BROWERS_Model, 
+                                             data=data_qualtrics_CFA60,estimator="WLSMV", 
+                                             ordered=c("EPDS_1", "EPDS_2","EPDS_3","EPDS_4","EPDS_5",
+                                                       "EPDS_6","EPDS_7","EPDS_8","EPDS_9","EPDS_10"))
+
+summary(data_qualtrics_CFA_BROWERS_Model_fitW, standardized=TRUE, fit.measures=TRUE)
+```
+Warning is before model was not identified. This was noted in paper. 
+Fitting the model with MLE:
+```{r results='hide'}
+data_qualtrics_CFA_BROWERS_Model_fitM <- cfa(data_qualtrics_CFA_BROWERS_Model, 
+                                             data=data_qualtrics_CFA60)
+
+summary(data_qualtrics_CFA_BROWERS_Model_fitM, standardized=TRUE, fit.measures=TRUE)
+```
+
+#### TUOHY MODEL
+```{r}
+data_qualtrics_CFA_TUOHY_Model <- ' anhedonia =~ EPDS_1 + EPDS_2 
+                                    anxiety =~ EPDS_3 + EPDS_4 + EPDS_5
+                                    depression =~ EPDS_7 + EPDS_8 + EPDS_9 + EPDS_10 ' 
+```
+Fitting the model with WLSMV:
+```{r results='hide'}
+data_qualtrics_CFA_TUOHY_Model_fitW <- cfa(data_qualtrics_CFA_TUOHY_Model,
+                                           data=data_qualtrics_CFA60,estimator="WLSMV", 
+                                           ordered=c("EPDS_1", "EPDS_2","EPDS_3","EPDS_4",
+                                                     "EPDS_5",
+                                                     "EPDS_6", "EPDS_7", "EPDS_8", "EPDS_9", 
+                                                     "EPDS_10"))
+
+summary(data_qualtrics_CFA_TUOHY_Model_fitW, standardized=TRUE, fit.measures=TRUE)
+```
+Fitting the model with MLE:
+```{r results='hide'}
+data_qualtrics_CFA_TUOHY_Model_fitM <- cfa(data_qualtrics_CFA_TUOHY_Model,
+                                           data=data_qualtrics_CFA60)
+
+summary(data_qualtrics_CFA_TUOHY_Model_fitM, standardized=TRUE, fit.measures=TRUE)
+```
+
+#### KUBOTA MODEL
+```{r}
+data_qualtrics_CFA_KUBOTA_Model <- ' anhedonia =~ EPDS_1 + EPDS_2 
+                                    anxiety =~ EPDS_3 + EPDS_4 + EPDS_5
+                                    depression =~ EPDS_7 + EPDS_8 + EPDS_9' 
+```
+Fitting the model with WLSMV:
+```{r results='hide'}
+data_qualtrics_CFA_KUBOTA_Model_fitW <- cfa(data_qualtrics_CFA_KUBOTA_Model, 
+                                            data=data_qualtrics_CFA60,estimator="WLSMV",
+                                            ordered=c("EPDS_1", "EPDS_2","EPDS_3","EPDS_4","EPDS_5",
+                                                      "EPDS_6", "EPDS_7", "EPDS_8", "EPDS_9"))
+
+summary(data_qualtrics_CFA_KUBOTA_Model_fitW, standardized=TRUE, fit.measures=TRUE)
+```
+Fitting the model with MLE:
+```{r results='hide'}
+data_qualtrics_CFA_KUBOTA_Model_fitM <- cfa(data_qualtrics_CFA_KUBOTA_Model, 
+                                            data=data_qualtrics_CFA60)
+
+summary(data_qualtrics_CFA_KUBOTA_Model_fitM, standardized=TRUE, fit.measures=TRUE)
+```
+
+#### ONE FACTOR
+```{r}
+data_qualtrics_CFA_ONEF_Model <- ' depression =~ EPDS_1 + EPDS_2 + EPDS_3 + EPDS_4 + EPDS_5 + EPDS_6 + 
+EPDS_7 + EPDS_8 + EPDS_9 + EPDS_10 '  
+```
+
+```{r results='hide'}
+data_qualtrics_CFA_ONEF_Model_fitW <- cfa(data_qualtrics_CFA_ONEF_Model, 
+                                          data=data_qualtrics_CFA60,estimator="WLSMV", 
+                                          ordered=c("EPDS_1", "EPDS_2","EPDS_3","EPDS_4","EPDS_5",
+                                                    "EPDS_6", "EPDS_7", "EPDS_8", "EPDS_9", "EPDS_10"))
+
+summary(data_qualtrics_CFA_ONEF_Model_fitW, standardized=TRUE, fit.measures=TRUE)
+```
+Fitting the model with MLE:
+```{r results='hide'}
+data_qualtrics_CFA_ONEF_Model_fitM <- cfa(data_qualtrics_CFA_ONEF_Model, data=data_qualtrics_CFA60)
+
+summary(data_qualtrics_CFA_ONEF_Model_fitM, standardized=TRUE, fit.measures=TRUE)
+```
+
+#### LAU MODEL
+```{r}
+data_qualtrics_CFA_LAU_Model <- ' anhedonia =~ EPDS_1 + EPDS_2 
+                                    anxiety =~ EPDS_3 + EPDS_4 + EPDS_5
+                                    depression =~ EPDS_6 + EPDS_7 + EPDS_8 + EPDS_9 + EPDS_10' 
+```
+Fitting the model with WLSMV:
+```{r results='hide'}
+data_qualtrics_CFA_LAU_Model_fitW <- cfa(data_qualtrics_CFA_LAU_Model, 
+                                         data=data_qualtrics_CFA60,estimator="WLSMV", 
+                                         ordered=c("EPDS_1", "EPDS_2","EPDS_3","EPDS_4","EPDS_5",
+                                                   "EPDS_6", "EPDS_7", "EPDS_8", "EPDS_9", "EPDS_10"))
+
+summary(data_qualtrics_CFA_LAU_Model_fitW, standardized=TRUE, fit.measures=TRUE)
+```
+
+```{r results='hide'}
+data_qualtrics_CFA_LAU_Model_fitM <- cfa(data_qualtrics_CFA_LAU_Model, data=data_qualtrics_CFA60)
+
+summary(data_qualtrics_CFA_LAU_Model_fitM, standardized=TRUE, fit.measures=TRUE)
+```
+
+## Other descriptives 
+
+```{r}
+data_qualtrics$EPDS3A = data_qualtrics$EPDS_3 + data_qualtrics$EPDS_4 + data_qualtrics$EPDS_5 
+psych::describe(data_qualtrics$EPDS3A)
+```
+
+How many with EPDS 3A score of 4 or more 
+```{r}
+sum(data_qualtrics$EPDS3A>3, na.rm=TRUE)
+```
+
+How many with EPDS 3A score of 6 or more 
+```{r}
+sum(data_qualtrics$EPDS3A>5, na.rm=TRUE)
+```
+
+How many with total EPDS less than 11
+```{r}
+sum(data_qualtrics$EPDS_Total<11, na.rm=TRUE)
+```
+
+How many participants with EPDS 3A more than 3 and total EPDS over less than 11
+```{r}
+length(data_qualtrics$partticipantID[data_qualtrics$EPDS3A>3 & data_qualtrics$EPDS_Total<11])
+```
+
+How many participants with EPDS 3A more than 5 and total EPDS over less than 11
+```{r}
+length(data_qualtrics$partticipantID[data_qualtrics$EPDS3A>5 & data_qualtrics$EPDS_Total<11])
+```
+
+Same but with threshold 13 or more 
+
+```{r}
+length(data_qualtrics$partticipantID[data_qualtrics$EPDS3A>3 & data_qualtrics$EPDS_Total<13])
+```
+
+```{r}
+length(data_qualtrics$partticipantID[data_qualtrics$EPDS3A>5 & data_qualtrics$EPDS_Total<13])
+```
+
+
+# dHCP PRENATAL SAMPLE 
+(May also be referred to as antenatal in code) 
+
+## Initial descriptives - dHCP Prenatal sample 
+```{r}
+dHCP_F1_FA <-read.csv("F1_FA.csv", header=TRUE, na.strings=c("","NA", " ", "not known"))
+```
+
+```{r}
+dHCP_F1_FAClean <- janitor::remove_empty(dHCP_F1_FA, which = "rows") 
+str(dHCP_F1_FAClean)
+```
+
+**Creating a dataframe with categorical variables for descriptive purposes only**
+```{r}
+dHCP_F1_FAClean2 <- dHCP_F1_FAClean
+dHCP_F1_FAClean2$F_EPDSQ1 <- factor(dHCP_F1_FAClean2$F_EPDSQ1, levels=c(0,1,2,3),
+                                labels=c("As much as..", "Not quite", "Definitely not", "Not at all"))
+
+dHCP_F1_FAClean2$F_EPDSQ2 <- factor(dHCP_F1_FAClean2$F_EPDSQ2, levels=c(0,1,2,3),
+                                labels=c("As much as..", "Rather less", "Definitely less", "Hardly"))
+
+dHCP_F1_FAClean2$F_EPDSQ3 <- factor(dHCP_F1_FAClean2$F_EPDSQ3, levels=c(0,1,2,3),
+                                labels=c("Never", "Not often", "Sometimes", "Yes, most")) 
+
+dHCP_F1_FAClean2$F_EPDSQ4 <- factor(dHCP_F1_FAClean2$F_EPDSQ4, levels=c(0,1,2,3),
+                                labels=c("No", "Hardly", "Sometimes", "Yes"))                   
+
+dHCP_F1_FAClean2$F_EPDSQ5 <- factor(dHCP_F1_FAClean2$F_EPDSQ5, levels=c(0,1,2,3),
+                                labels=c("Not at all", "Not much", "Sometimes", "Yes"))   
+
+dHCP_F1_FAClean2$F_EPDSQ6 <- factor(dHCP_F1_FAClean2$F_EPDSQ6, levels=c(0,1,2,3),
+                                labels=c("No", "No, most time..", "Sometimes", "Yes"))   
+
+dHCP_F1_FAClean2$F_EPDSQ7 <- factor(dHCP_F1_FAClean2$F_EPDSQ7, levels=c(0,1,2,3),
+                                labels=c("No", "Not very", "Sometimes", "Yes"))
+
+dHCP_F1_FAClean2$F_EPDSQ8 <- factor(dHCP_F1_FAClean2$F_EPDSQ8, levels=c(0,1,2,3),
+                                labels=c("No", "Not very", "Often", "Yes"))
+
+dHCP_F1_FAClean2$F_EPDSQ9 <- factor(dHCP_F1_FAClean2$F_EPDSQ9, levels=c(0,1,2,3),
+                                labels=c("No", "Occasionally", "Often", "Yes"))
+
+dHCP_F1_FAClean2$F_EPDSQ10 <- factor(dHCP_F1_FAClean2$F_EPDSQ10, levels=c(0,1,2,3),
+                                 labels=c("Never", "Hardly", "Sometimes", "Yes"))
+```
+
+Checking structure of dataframe.
+```{r results='hide'}
+str(dHCP_F1_FAClean2) 
+```
+
+Calculating % for frequency of response for each answer 
+```{r}
+summary(dHCP_F1_FAClean2$F_EPDSQ1)
+```
+Calculating percentages 
+423/471 = 89.80 %  
+42/471 = 8.91 %  
+6/471 = 1.27 %  
+0/471 = 0  %  
+
+```{r}
+summary(dHCP_F1_FAClean2$F_EPDSQ2)
+```
+Calculating percentages 
+412/471 = 87.47 %  
+48/471 = 10.19 %  
+10/471 = 2.12 %  
+1/471 = 0.21  %  
+
+```{r}
+summary(dHCP_F1_FAClean2$F_EPDSQ3)
+```
+Calculating percentages 
+112/471 = 23.77 %  
+231/471 = 49.04 %  
+116/471 = 24.62 %  
+12/471 = 2.54  %  
+
+```{r}
+summary(dHCP_F1_FAClean2$F_EPDSQ4)
+```
+Calculating percentages 
+156/471 = 33.12 %  
+151/471 = 32.05 %  
+154/471 = 32.69 %  
+10/471 = 2.12  %  
+
+```{r}
+summary(dHCP_F1_FAClean2$F_EPDSQ5)
+```
+Calculating percentages 
+264/471 = 56.05 %  
+132/471 = 28.02 %  
+65/471 = 13.80 %  
+10/471 = 2.12  %  
+
+```{r}
+summary(dHCP_F1_FAClean2$F_EPDSQ6)
+```
+Calculating percentages 
+176/471 = 37.36 %  
+211/471 = 44.79 %  
+81/471 = 17.19 %  
+3/471 = 0.63  %  
+
+```{r}
+summary(dHCP_F1_FAClean2$F_EPDSQ7)
+```
+Calculating percentages 
+365/471 = 77.49 %  
+64/471 = 13.58 %  
+36/471 = 7.64 %  
+6/471 = 1.27  %  
+
+```{r}
+summary(dHCP_F1_FAClean2$F_EPDSQ8)
+```
+Calculating percentages 
+261/471 = 55.41 %  
+173/471 = 36.73 %  
+34/471 = 7.21 %  
+3/471 = 0.63  %  
+
+```{r}
+summary(dHCP_F1_FAClean2$F_EPDSQ9)
+```
+Calculating percentages 
+301/471 = 63.90 %  
+151/471 = 32.05 %  
+16/471 = 3.39 %   
+3/471 =  0.63 %  
+
+```{r}
+summary(dHCP_F1_FAClean2$F_EPDSQ10)
+```
+Calculating percentages 
+453/471 = 96.17 %  
+15/471 = 3.18 %  
+1/471 = 0.21 %  
+2/471 = 0.42  %  
+
+To double-check that these numbers are correct, also doing. All seems fine. 
+```{r results="hide", warning=FALSE, comment=FALSE, message=FALSE}
+((plyr::count(dHCP_F1_FAClean$F_EPDSQ1))*100)/471
+((plyr::count(dHCP_F1_FAClean$F_EPDSQ2))*100)/471
+((plyr::count(dHCP_F1_FAClean$F_EPDSQ3))*100)/471
+((plyr::count(dHCP_F1_FAClean$F_EPDSQ4))*100)/471
+((plyr::count(dHCP_F1_FAClean$F_EPDSQ5))*100)/471
+((plyr::count(dHCP_F1_FAClean$F_EPDSQ6))*100)/471
+((plyr::count(dHCP_F1_FAClean$F_EPDSQ7))*100)/471
+((plyr::count(dHCP_F1_FAClean$F_EPDSQ8))*100)/471
+((plyr::count(dHCP_F1_FAClean$F_EPDSQ9))*100)/471
+((plyr::count(dHCP_F1_FAClean$F_EPDSQ10))*100)/471
+```
+
+**Going back to the main database with integers instead of categories from now on** 
+
+## FACTOR ANALYSIS (dHCP Prenatal sample)
+Creating subset of FA database without the 10th question
+```{r}
+dHCP_F1_FAClean9<- subset(dHCP_F1_FAClean, select=c(-F_EPDSQ10))
+```
+
+Calculating Cronbach's alpha
+```{r results='hide'}
+psych::alpha(dHCP_F1_FAClean9)
+```
+
+```{r}
+ci.reliability(dHCP_F1_FAClean9, type="omega")
+```
+
+
+Need to create 2 subsets - one for EFA (40%) and one for CFA (60%)
+```{r}
+set.seed(999)
+n=nrow(dHCP_F1_FAClean9)
+dHCP_F1_FAClean9_Index = sample(1:n, size=round(0.6*n), replace=FALSE)
+dHCP_F1_9_CFA60 = dHCP_F1_FAClean9 [dHCP_F1_FAClean9_Index ,]
+dHCP_F1_9_EFA40 = dHCP_F1_FAClean9 [-dHCP_F1_FAClean9_Index ,]
+```
+
+```{r results='hide'}
+str(dHCP_F1_9_CFA60)
+str(dHCP_F1_9_EFA40)
+```
+CFA n=283, EFA n=188 . Total 471 
+
+### EFA with Pearson correlation matrix (dHCP prenatal sample)
+
+Calculating a correlation matrix and saving it 
+```{r}
+dHCP_F1_9_EFA40_Matrix <- cor(dHCP_F1_9_EFA40)
+```
+
+Displaying the correlation matrix using 2 decimal places
+```{r}
+round(dHCP_F1_9_EFA40_Matrix,2)
+```
+
+Doing Kaiser-Mayer-Olkin (KMO) measure of sampling adequacy
+```{r}
+KMO(dHCP_F1_9_EFA40_Matrix)
+```
+
+Doing Bartlett's test of sphrericity
+```{r}
+cortest.bartlett(dHCP_F1_9_EFA40_Matrix,188)
+```
+
+Calculating the determinant of the correlation matrix
+```{r}
+det(dHCP_F1_9_EFA40_Matrix)
+```
+
+ Get eigenvalues and scree plot
+```{r}
+ev_dHCP_F1_9_EFA40<- eigen(cor(dHCP_F1_9_EFA40)) 
+ev_dHCP_F1_9_EFA40
+```
+
+```{r}
+scree_dHCP_F1_9_EFA40 <- scree(dHCP_F1_9_EFA40)
+```
+
+Doing Parallel analysis.
+First, we need to check the number of observations for EFA
+```{r results='hide'}
+describe(dHCP_F1_9_EFA40)
+```
+
+```{r}
+parallel_dHCP_F1_9_EFA40<- fa.parallel(dHCP_F1_9_EFA40_Matrix, n.obs=188, 
+                                       main="Parallel Analysis Scree Plots", fm="mrfa", 
+                                       fa="fa", SMC=TRUE, quant=.95, n.iter=500)
+parallel_dHCP_F1_9_EFA40
+```
+
+
+Doing factor analysis now 
+```{r}
+dHCP_F1_9_EFA40_Analysis1<-factanal (dHCP_F1_9_EFA40,2, rotation="promax", fm="mle")
+print(dHCP_F1_9_EFA40_Analysis1, digits=2, cutoff=.30, sort=FALSE)
+```
+
+```{r}
+dHCP_F1_9_EFA40_Analysis2<-factanal (dHCP_F1_9_EFA40,3, rotation="promax", fm="mrfa")
+print(dHCP_F1_9_EFA40_Analysis2, digits=2, cutoff=.30, sort=FALSE)
+```
+
+## EFA with Polychoric correlation matrix (dHCP Prenatal sample) 
+
+Doing the above again, with a polychoric correlation matrix this time (as per Lysdottir et al.)
+```{r}
+b <- psych::polychoric(dHCP_F1_9_EFA40, correct=FALSE)
+dHCP_F1_9_EFA40_PolychorMatrix <- b$rho
+``` 
+
+Displaying the correlation matrix using 2 decimal places
+```{r}
+round(dHCP_F1_9_EFA40_PolychorMatrix,2)
+```
+
+Doing Kaiser-Mayer-Olkin (KMO) measure of sampling adequacy
+```{r}
+KMO(dHCP_F1_9_EFA40_PolychorMatrix)
+```
+
+Doing Bartlett's test of sphrericity
+```{r}
+cortest.bartlett(dHCP_F1_9_EFA40_PolychorMatrix,106)
+```
+
+Calculating the determinant of the correlation matrix
+```{r}
+det(dHCP_F1_9_EFA40_PolychorMatrix)
+```
+
+Get eigenvalues and scree plot
+```{r}
+ev_dHCP_F1_9_EFA40_PolychorMatrix<- eigen(dHCP_F1_9_EFA40_PolychorMatrix)
+ev_dHCP_F1_9_EFA40_PolychorMatrix
+```
+
+```{r}
+scree_dHCP_F1_9_EFA40_PolychorMatrix  <- scree(dHCP_F1_9_EFA40_PolychorMatrix)
+scree_dHCP_F1_9_EFA40_PolychorMatrix 
+```
+
+```{r}
+parallel_dHCP_F1_9_EFA40_PolychorMatrix<-fa.parallel(dHCP_F1_9_EFA40_PolychorMatrix,n.obs=188, 
+                                                     main="Parallel Analysis Scree Plots",
+                                                     fm="mrfa", 
+                                                     cor="poly", quant=.95, SMC=TRUE, n.iter=500)
+parallel_dHCP_F1_9_EFA40_PolychorMatrix
+```
+
+Doing the exploratory factor analysis now 
+```{r}
+dHCP_F1_9_EFA40_Polychor_Analysis1<-factanal (covmat=dHCP_F1_9_EFA40_PolychorMatrix,factors=2, 
+                                              rotation="oblimin", fm="mle")
+print(dHCP_F1_9_EFA40_Polychor_Analysis1, digits=2, cutoff=.30, sort=FALSE)
+```
+
+
+```{r}
+dHCP_F1_9_EFA40_Polychor_Analysis2<-factanal(covmat=dHCP_F1_9_EFA40_PolychorMatrix,factors=3, 
+                                             rotation="oblimin", fm="mle")
+print(dHCP_F1_9_EFA40_Polychor_Analysis2, digits=2, cutoff=.30, sort=FALSE)
+```
+
+### CFA (dHCP prenatal sample)
+
+Now doing confirmatory factor analysis 
+#### From EFA - 3 FACTOR MODEL
+```{r}
+F1_FA_CFA_Model_3f <- ' depression  =~ F_EPDSQ7 + F_EPDSQ8   
+              anhedonia =~ F_EPDSQ1
+              anxiety  =~ F_EPDSQ3 + F_EPDSQ4 + F_EPDSQ5 '
+```
+
+Fitting the model with WLSMV:
+```{r}
+F1_FA_CFA_Model_3f_fitW <- cfa(F1_FA_CFA_Model_3f, data=dHCP_F1_9_CFA60,estimator="WLSMV", ordered=c("F_EPDSQ7","F_EPDSQ8","F_EPDSQ1","F_EPDSQ3","F_EPDSQ4","F_EPDSQ5"))
+```
+Warning is normal as model could not be identified. This was noted in the paper. 
+
+```{r results='hide'}
+summary(F1_FA_CFA_Model_3f_fitW , standardized=TRUE, fit.measures=TRUE)
+```
+
+Fitting the model with MLE:
+```{r}
+F1_FA_CFA_Model_3f_fitM <- cfa(F1_FA_CFA_Model_3f, data=dHCP_F1_9_CFA60)
+```
+
+```{r results='hide'}
+summary(F1_FA_CFA_Model_3f_fitM, standardized=TRUE, fit.measures=TRUE)
+```
+
+#### From EFA - 2 FACTOR MODEL
+```{r}
+F1_FA_CFA_Model_2f <- ' depression  =~ F_EPDSQ3 + F_EPDSQ4 + F_EPDSQ5 + F_EPDSQ9   
+              anhedonia =~ F_EPDSQ1 + F_EPDSQ2 + F_EPDSQ7 + F_EPDSQ8'
+```
+
+Fitting the model with WLSMV:
+```{r}
+F1_FA_CFA_Model_2f_fitW <- cfa(F1_FA_CFA_Model_2f, data=dHCP_F1_9_CFA60,estimator="WLSMV", ordered=c("F_EPDSQ3","F_EPDSQ4","F_EPDSQ5","F_EPDSQ6","F_EPDSQ9","F_EPDSQ1", "F_EPDSQ2"))
+```
+
+```{r results='hide'}
+summary(F1_FA_CFA_Model_2f_fitW , standardized=TRUE, fit.measures=TRUE)
+```
+
+Fitting the model with MLE:
+```{r}
+F1_FA_CFA_Model_2f_fitM <- cfa(F1_FA_CFA_Model_2f, data=dHCP_F1_9_CFA60)
+```
+
+```{r results='hide'}
+summary(F1_FA_CFA_Model_2f_fitM, standardized=TRUE, fit.measures=TRUE)
+```
+
+#### BROWERS 2 Factor Model 
+```{r}
+F1_FA_BROWERS_Model_2f <- ' depression  =~ F_EPDSQ1 + F_EPDSQ2 + F_EPDSQ8  
+            anxiety =~ F_EPDSQ3 + F_EPDSQ4 + F_EPDSQ5'
+```
+
+Fitting the model with WLSMV:
+```{r}
+F1_FA_BROWERS_Model_2f_fitW <- cfa(F1_FA_BROWERS_Model_2f, data=dHCP_F1_9_CFA60,estimator="WLSMV",
+                                   ordered=c("F_EPDSQ1","F_EPDSQ2","F_EPDSQ8","F_EPDSQ3", "F_EPDSQ4",
+                                             "F_EPDSQ5"))
+```
+
+```{r results='hide'}
+summary(F1_FA_BROWERS_Model_2f_fitW , standardized=TRUE, fit.measures=TRUE)
+```
+
+Fitting the model with MLE:
+```{r}
+F1_FA_BROWERS_Model_2f_fitM <- cfa(F1_FA_BROWERS_Model_2f, data=dHCP_F1_9_CFA60)
+```
+
+```{r results='hide'}
+summary(F1_FA_BROWERS_Model_2f_fitM, standardized=TRUE, fit.measures=TRUE)
+```
+
+#### KUBOTA 3 Factor Model 
+```{r}
+F1_FA_KUBOTA_Model_3f <- 'anhedonia =~ F_EPDSQ1 + F_EPDSQ2
+            anxiety =~ F_EPDSQ3 + F_EPDSQ4 + F_EPDSQ5
+            depression  =~ F_EPDSQ7 + F_EPDSQ8 + F_EPDSQ9'
+```
+
+Fitting the model with WLSMV:
+```{r}
+F1_FA_KUBOTA_Model_3f_fitW <- cfa(F1_FA_KUBOTA_Model_3f, data=dHCP_F1_9_CFA60,estimator="WLSMV",
+                                  ordered=c("F_EPDSQ1","F_EPDSQ2","F_EPDSQ3","F_EPDSQ4", "F_EPDSQ5", 
+                                            "F_EPDSQ7", "F_EPDSQ8", "F_EPDSQ9"))
+```
+
+```{r results='hide'}
+summary(F1_FA_KUBOTA_Model_3f_fitW , standardized=TRUE, fit.measures=TRUE)
+```
+
+Fitting the model with MLE:
+```{r}
+F1_FA_KUBOTA_Model_3f_fitM <- cfa(F1_FA_KUBOTA_Model_3f, data=dHCP_F1_9_CFA60)
+```
+
+```{r results='hide'}
+summary(F1_FA_KUBOTA_Model_3f_fitM, standardized=TRUE, fit.measures=TRUE)
+```
+
+#### COX 1 Factor Model 
+```{r}
+F1_FA_COX_Model_1f <- 'depression =~ F_EPDSQ1 + F_EPDSQ2 + F_EPDSQ3 + F_EPDSQ4 + F_EPDSQ5 + F_EPDSQ6 + 
+F_EPDSQ7 + F_EPDSQ8 + F_EPDSQ9'
+```
+
+Fitting the model with WLSMV:
+```{r}
+F1_FA_COX_Model_1f_fitW <- cfa(F1_FA_COX_Model_1f, data=dHCP_F1_9_CFA60,estimator="WLSMV", 
+                               ordered=c("F_EPDSQ1","F_EPDSQ2","F_EPDSQ3","F_EPDSQ4", "F_EPDSQ5",
+                                         "F_EPDSQ6",
+                                         "F_EPDSQ7", "F_EPDSQ8", "F_EPDSQ9"))
+```
+
+```{r results='hide'}
+summary(F1_FA_COX_Model_1f_fitW , standardized=TRUE, fit.measures=TRUE)
+```
+
+Fitting the model with MLE:
+```{r}
+F1_FA_COX_Model_1f_fitM <- cfa(F1_FA_COX_Model_1f, data=dHCP_F1_9_CFA60)
+```
+
+```{r results='hide'}
+summary(F1_FA_COX_Model_1f_fitM, standardized=TRUE, fit.measures=TRUE)
+```
+
+#### PHILLIPS Factor Model 
+```{r}
+F1_FA_PHILLIPS_Model_2f <- ' depression  =~ F_EPDSQ1 + F_EPDSQ2 + F_EPDSQ6 + F_EPDSQ7 + F_EPDSQ8 +
+                              F_EPDSQ9    
+                              anxiety =~ F_EPDSQ3 + F_EPDSQ4 + F_EPDSQ5'
+```
+
+Fitting the model with WLSMV:
+```{r}
+F1_FA_PHILLIPS_Model_2f_fitW <- cfa(F1_FA_PHILLIPS_Model_2f, data=dHCP_F1_9_CFA60,estimator="WLSMV",
+                                    ordered=c("F_EPDSQ1","F_EPDSQ2","F_EPDSQ6","F_EPDSQ7","F_EPDSQ8",
+                                              "F_EPDSQ9","F_EPDSQ3", "F_EPDSQ4", "F_EPDSQ5"))
+```
+
+```{r results='hide'}
+summary(F1_FA_PHILLIPS_Model_2f_fitW , standardized=TRUE, fit.measures=TRUE)
+```
+
+Fitting the model with MLE:
+```{r}
+F1_FA_PHILLIPS_Model_2f_fitM <- cfa(F1_FA_PHILLIPS_Model_2f, data=dHCP_F1_9_CFA60)
+```
+
+```{r results='hide'}
+summary(F1_FA_PHILLIPS_Model_2f_fitM, standardized=TRUE, fit.measures=TRUE)
+```
+
+#### ZHONG Factor Model 
+```{r}
+F1_FA_ZHONG_Model_2f <- ' depression  =~ F_EPDSQ3 + F_EPDSQ4 + F_EPDSQ5 + F_EPDSQ6 + F_EPDSQ7 +
+F_EPDSQ8 + F_EPDSQ9  
+            anhedonia =~ F_EPDSQ1 + F_EPDSQ2'
+```
+
+Fitting the model with WLSMV:
+```{r}
+F1_FA_ZHONG_Model_2f_fitW <- cfa(F1_FA_ZHONG_Model_2f, data=dHCP_F1_9_CFA60,estimator="WLSMV",
+                                 ordered=c("F_EPDSQ1","F_EPDSQ2","F_EPDSQ6","F_EPDSQ7","F_EPDSQ8",
+                                           "F_EPDSQ9", 
+                                           "F_EPDSQ3", "F_EPDSQ4", "F_EPDSQ5"))
+```
+
+```{r results='hide'}
+summary(F1_FA_ZHONG_Model_2f_fitW , standardized=TRUE, fit.measures=TRUE)
+```
+
+Fitting the model with MLE:
+```{r}
+F1_FA_ZHONG_Model_2f_fitM <- cfa(F1_FA_ZHONG_Model_2f, data=dHCP_F1_9_CFA60)
+```
+
+```{r results='hide'}
+summary(F1_FA_ZHONG_Model_2f_fitM, standardized=TRUE, fit.measures=TRUE)
+```
+
+#### TUOHY Factor Model 
+```{r}
+F1_FA_TUOHY_Model_2f <- ' depression  =~ F_EPDSQ7 + F_EPDSQ8 + F_EPDSQ9  
+            anhedonia =~ F_EPDSQ1 + F_EPDSQ2
+            anxiety=~ F_EPDSQ3 + F_EPDSQ4 + F_EPDSQ5'
+```
+
+Fitting the model with WLSMV:
+```{r}
+F1_FA_TUOHY_Model_2f_fitW <- cfa(F1_FA_TUOHY_Model_2f, data=dHCP_F1_9_CFA60,estimator="WLSMV",
+                                 ordered=c("F_EPDSQ1","F_EPDSQ2","F_EPDSQ6","F_EPDSQ7","F_EPDSQ8",
+                                           "F_EPDSQ9", 
+                                           "F_EPDSQ3", "F_EPDSQ4", "F_EPDSQ5"))
+```
+
+```{r results='hide'}
+summary(F1_FA_TUOHY_Model_2f_fitW , standardized=TRUE, fit.measures=TRUE)
+```
+
+Fitting the model with MLE:
+```{r}
+F1_FA_TUOHY_Model_2f_fitM <- cfa(F1_FA_TUOHY_Model_2f, data=dHCP_F1_9_CFA60)
+```
+
+```{r results='hide'}
+summary(F1_FA_TUOHY_Model_2f_fitM, standardized=TRUE, fit.measures=TRUE)
+```
+
+#### LAU Factor Model 
+
+```{r}
+F1_FA_LAU_Model_2f <- ' depression  =~ F_EPDSQ6 + F_EPDSQ7 + F_EPDSQ8 + F_EPDSQ9  
+            anhedonia=~ F_EPDSQ1 + F_EPDSQ2
+            anxiety=~ F_EPDSQ3 + F_EPDSQ4 + F_EPDSQ5'
+```
+
+Fitting the model with WLSMV:
+
+```{r}
+F1_FA_LAU_Model_2f_fitW <- cfa(F1_FA_LAU_Model_2f, data=dHCP_F1_9_CFA60,estimator="WLSMV",
+                               ordered=c("F_EPDSQ1", "F_EPDSQ2", "F_EPDSQ3", "F_EPDSQ4", "F_EPDSQ5",
+                                         "F_EPDSQ6","F_EPDSQ7", "F_EPDSQ8", "F_EPDSQ9"))
+```
+
+
+```{r results='hide'}
+summary(F1_FA_LAU_Model_2f_fitW , standardized=TRUE, fit.measures=TRUE)
+```
+
+Fitting the model with MLE:
+```{r}
+F1_FA_LAU_Model_2f_fitM <- cfa(F1_FA_LAU_Model_2f, data=dHCP_F1_9_CFA60)
+```
+
+```{r results='hide'}
+summary(F1_FA_LAU_Model_2f_fitM, standardized=TRUE, fit.measures=TRUE)
+```
+
+# dHCP POSTNATAL sample 
+
+## Initial descriptives and setup (dHCP postnatal sample)
+
+Loading dataframe 
+```{r}
+dHCP_N1_FA <-read.csv("N1_FA.csv", header=TRUE, na.strings=c("","NA", " ", "not known"))
+```
+
+Removing empty rows 
+```{r}
+dHCP_N1_FAClean <- janitor::remove_empty(dHCP_N1_FA, which = "rows") 
+```
+
+```{r results='hide'}
+str(dHCP_N1_FAClean)
+```
+
+**Creating a dataframe with categorical variables for descriptive purposes only**
+```{r}
+dHCP_N1_FAClean2 <- dHCP_N1_FAClean
+dHCP_N1_FAClean2$N_EPDSQ1 <- factor(dHCP_N1_FAClean2$N_EPDSQ1, levels=c(0,1,2,3),
+                                labels=c("As much as..", "Not quite", "Definitely not", "Not at all"))
+
+dHCP_N1_FAClean2$N_EPDSQ2 <- factor(dHCP_N1_FAClean2$N_EPDSQ2, levels=c(0,1,2,3),
+                                labels=c("As much as..", "Rather less", "Definitely less", "Hardly"))
+
+dHCP_N1_FAClean2$N_EPDSQ3 <- factor(dHCP_N1_FAClean2$N_EPDSQ3, levels=c(0,1,2,3),
+                                labels=c("Never", "Not often", "Sometimes", "Yes, most")) 
+
+dHCP_N1_FAClean2$N_EPDSQ4 <- factor(dHCP_N1_FAClean2$N_EPDSQ4, levels=c(0,1,2,3),
+                                labels=c("No", "Hardly", "Sometimes", "Yes"))                   
+
+dHCP_N1_FAClean2$N_EPDSQ5 <- factor(dHCP_N1_FAClean2$N_EPDSQ5, levels=c(0,1,2,3),
+                                labels=c("Not at all", "Not much", "Sometimes", "Yes"))   
+
+dHCP_N1_FAClean2$N_EPDSQ6 <- factor(dHCP_N1_FAClean2$N_EPDSQ6, levels=c(0,1,2,3),
+                                labels=c("No", "No, most time..", "Sometimes", "Yes"))   
+
+dHCP_N1_FAClean2$N_EPDSQ7 <- factor(dHCP_N1_FAClean2$N_EPDSQ7, levels=c(0,1,2,3),
+                                labels=c("No", "Not very", "Sometimes", "Yes"))
+
+dHCP_N1_FAClean2$N_EPDSQ8 <- factor(dHCP_N1_FAClean2$N_EPDSQ8, levels=c(0,1,2,3),
+                                labels=c("No", "Not very", "Often", "Yes"))
+
+dHCP_N1_FAClean2$N_EPDSQ9 <- factor(dHCP_N1_FAClean2$N_EPDSQ9, levels=c(0,1,2,3),
+                                labels=c("No", "Occasionally", "Often", "Yes"))
+
+dHCP_N1_FAClean2$N_EPDSQ10 <- factor(dHCP_N1_FAClean2$N_EPDSQ10, levels=c(0,1,2,3),
+                                 labels=c("Never", "Hardly", "Sometimes", "Yes"))
+```
+
+Checking structure of dataframe.
+```{r resuls='hide'}
+str(dHCP_N1_FAClean2) 
+```
+
+Calculating % for frequency of response for each answer 
+```{r}
+summary(dHCP_N1_FAClean2$N_EPDSQ1)
+```
+Calculating percentages 
+517/637 = 81.16 %  
+98/637 = 15.38 %  
+17/637 = 2.66 %  
+5/637 = 0.78 %  
+
+```{r}
+summary(dHCP_N1_FAClean2$N_EPDSQ2)
+```
+Calculating percentages 
+537/637 = 84.30 %  
+82/637 = 12.87 %  
+12/637= 1.88 %  
+6/637 = 0.94 %  
+
+```{r}
+summary(dHCP_N1_FAClean2$N_EPDSQ3)
+```
+Calculating percentages 
+168/637 = 26.37 %  
+276/637= 43.32 %  
+178/637 = 27.94 %  
+15/637 = 2.35 %  
+
+```{r}
+summary(dHCP_N1_FAClean2$N_EPDSQ4)
+```
+Calculating percentages 
+225/637 = 35.32 %   
+207/637 = 32.49 %  
+182/637 = 28.57 %  
+23/637 = 3.61 %  
+
+```{r}
+summary(dHCP_N1_FAClean2$N_EPDSQ5)
+```
+Calculating percentages 
+343/637 = 53.84 %  
+188/637 = 29.51 %  
+97/637 = 15.22 %  
+9/637 = 1.41 %  
+
+```{r}
+summary(dHCP_N1_FAClean2$N_EPDSQ6)
+```
+Calculating percentages 
+187/637 = 29.35 %  
+315/637 = 49.45 %  
+126/637 = 19.78 %  
+9/637 = 1.41%  
+
+```{r}
+summary(dHCP_N1_FAClean2$N_EPDSQ7)
+```
+Calculating percentages 
+467/637 = 73.31 %  
+107/637 = 16.79 %  
+53/637= 8.32 %  
+10/637 = 1.56 %  
+
+```{r}
+summary(dHCP_N1_FAClean2$N_EPDSQ8)
+```
+Calculating percentages 
+341/637 = 53.53 %  
+245/637 = 38.46 %  
+48/637 = 7.53 %  
+3/637 = 0.47 %  
+
+```{r}
+summary(dHCP_N1_FAClean2$N_EPDSQ9)
+```
+Calculating percentages 
+351/637 = 55.10 %  
+251/637 = 39.40 %  
+29/637 = 4.55 %  
+6/637 = 0.94 %  
+
+```{r}
+summary(dHCP_N1_FAClean2$N_EPDSQ10)
+```
+Calculating percentages 
+617/637 = 96.86 %  
+12/637 = 1.88 %  
+8/637 = 1.25 %  
+0/637 = 0 %  
+
+To double-check that these numbers are correct, also doing. All seems fine. 
+```{r results="hide", warning=FALSE, comment=FALSE, message=FALSE}
+((plyr::count(dHCP_N1_FAClean2$N_EPDSQ1))*100)/637
+((plyr::count(dHCP_N1_FAClean2$N_EPDSQ2))*100)/637
+((plyr::count(dHCP_N1_FAClean2$N_EPDSQ3))*100)/637
+((plyr::count(dHCP_N1_FAClean2$N_EPDSQ4))*100)/637
+((plyr::count(dHCP_N1_FAClean2$N_EPDSQ5))*100)/637
+((plyr::count(dHCP_N1_FAClean2$N_EPDSQ6))*100)/637
+((plyr::count(dHCP_N1_FAClean2$N_EPDSQ7))*100)/637
+((plyr::count(dHCP_N1_FAClean2$N_EPDSQ8))*100)/637
+((plyr::count(dHCP_N1_FAClean2$N_EPDSQ9))*100)/637
+((plyr::count(dHCP_N1_FAClean2$N_EPDSQ10))*100)/637
+```
+
+**Going back to the main database with integers instead of categories from now on** 
+
+## FACTOR ANALYSIS (dHCP Postnatal sample)
+Creating subset of FA database without the 10th question
+```{r}
+dHCP_N1_FAClean9<- subset(dHCP_N1_FAClean, select=c(-N_EPDSQ10))
+```
+
+Calculating Cronbach's alpha
+```{r results="hide"}
+psych::alpha(dHCP_N1_FAClean9)
+```
+
+Calculating McDonald's omega 
+```{r}
+ci.reliability(dHCP_N1_FAClean9, type="omega")
+```
+
+
+
+Need to create 2 subsets - one for EFA (40%) and one for CFA (60%)
+```{r}
+set.seed(6740)
+n=nrow(dHCP_N1_FAClean9)
+dHCP_N1_FAClean9_Index = sample(1:n, size=round(0.6*n), replace=FALSE)
+dHCP_N1_9_CFA60 = dHCP_N1_FAClean9 [dHCP_N1_FAClean9_Index ,]
+dHCP_N1_9_EFA40 = dHCP_N1_FAClean9 [-dHCP_N1_FAClean9_Index ,]
+```
+
+```{r results='hide'}
+str(dHCP_N1_9_CFA60)
+str(dHCP_N1_9_EFA40)
+```
+CFA n=382, EFA n=255 . Total 637. 
+
+### EFA with Pearson correlation matrix (dHCP Postnatal sample)
+
+Calculating a correlation matrix and saving it 
+```{r}
+dHCP_N1_9_EFA40_Matrix <- cor(dHCP_N1_9_EFA40)
+```
+
+Displaying the correlation matrix using 2 decimal places. 
+Checking if there are any above 9, to avoid multicollinearity (there are not) or any that don't correlate at all with other (there are not). 
+```{r}
+round(dHCP_N1_9_EFA40_Matrix,2)
+```
+
+Doing Kaiser-Mayer-Olkin (KMO) measure of sampling adequacy.KMO measures of sampling adequacy were >.8, well above the acceptable limit of .5.  
+```{r}
+KMO(dHCP_N1_9_EFA40_Matrix)
+```
+
+Doing Bartlett's test of sphrericity.Bartlett’s test of sphericity p<.05 indicated that the correlations between items were sufficiently large for factor analysis
+```{r}
+cortest.bartlett(dHCP_N1_9_EFA40_Matrix,188)
+```
+
+Calculating the determinant of the correlation matrix. The determinant of the correlation matrix was .., greater than the necessary value of .00001.
+ 
+```{r}
+det(dHCP_N1_9_EFA40_Matrix)
+```
+
+ Get eigenvalues and scree plot
+```{r}
+ev_dHCP_N1_9_EFA40<- eigen(cor(dHCP_N1_9_EFA40)) 
+ev_dHCP_N1_9_EFA40
+```
+
+```{r}
+scree_dHCP_N1_9_EFA40 <- scree(dHCP_N1_9_EFA40)
+```
+
+Doing Parallel analysis.
+First, we need to check the number of observations for EFA.
+```{r results='hide'}
+describe(dHCP_N1_9_EFA40)
+```
+
+```{r}
+parallel_dHCP_N1_9_EFA40<- fa.parallel(dHCP_N1_9_EFA40_Matrix, n.obs=255, 
+                                       main="Parallel Analysis Scree Plots", fm="mrfa", fa="fa", 
+                                       SMC=TRUE, quant=.95, n.iter=500)
+parallel_dHCP_N1_9_EFA40
+```
+
+Now doing the EFA
+```{r}
+dHCP_N1_9_EFA40_Analysis1<-factanal (dHCP_N1_9_EFA40,2, rotation="promax", fm="mle")
+print(dHCP_N1_9_EFA40_Analysis1, digits=2, cutoff=.30, sort=FALSE)
+```
+
+```{r}
+dHCP_N1_9_EFA40_Analysis2<-factanal (dHCP_N1_9_EFA40,3, rotation="promax", fm="mrfa")
+print(dHCP_N1_9_EFA40_Analysis2, digits=2, cutoff=.30, sort=FALSE)
+```
+
+### EFA with Polychoric correlation matrix (dHCP Postnatal sample)
+
+Trying to do the above again, with a polychoric correlation matrix this time (as per Lysdottir et al.). 
+```{r}
+c <- psych::polychoric(dHCP_N1_9_EFA40, correct=FALSE) 
+dHCP_N1_9_EFA40_PolychorMatrix <- c$rho
+``` 
+
+
+Displaying the correlation matrix using 2 decimal places
+```{r}
+round(dHCP_N1_9_EFA40_PolychorMatrix,2)
+```
+
+Doing Kaiser-Mayer-Olkin (KMO) measure of sampling adequacy.KMO measures of sampling adequacy were well above the acceptable limit of .5.  
+```{r}
+KMO(dHCP_N1_9_EFA40_PolychorMatrix)
+```
+
+Doing Bartlett's test of sphrericity
+```{r}
+cortest.bartlett(dHCP_N1_9_EFA40_PolychorMatrix,106)
+```
+
+Calculating the determinant of the correlation matrix
+```{r}
+det(dHCP_N1_9_EFA40_PolychorMatrix)
+```
+
+ Get eigenvalues and scree plot.Checking the tail end of eigenvalues to make sure all are non-negative 
+ All are >0 , which means that we have obtained a proper correlation matrix. 
+Check eigenvalues >1
+```{r}
+ev_dHCP_N1_9_EFA40_PolychorMatrix<- eigen(dHCP_N1_9_EFA40_PolychorMatrix)
+ev_dHCP_N1_9_EFA40_PolychorMatrix
+```
+
+```{r}
+scree_dHCP_N1_9_EFA40_PolychorMatrix  <- scree(dHCP_N1_9_EFA40_PolychorMatrix)
+scree_dHCP_N1_9_EFA40_PolychorMatrix 
+```
+
+```{r}
+parallel_dHCP_N1_9_EFA40_PolychorMatrix<-fa.parallel(dHCP_N1_9_EFA40_PolychorMatrix, n.obs=255, 
+                                                     main="Parallel Analysis Scree Plots", fa="fa",
+                                                     fm="mrfa",cor="poly", quant=.95, SMC=TRUE, 
+                                                     n.iter=500)
+parallel_dHCP_N1_9_EFA40_PolychorMatrix
+```
+
+Doing the exploratory factor analysis now 
+```{r}
+dHCP_N1_9_EFA40_Polychor_Analysis1<-factanal (covmat=dHCP_N1_9_EFA40_PolychorMatrix,factors=2, 
+                                              rotation="oblimin", fm="mle")
+print(dHCP_N1_9_EFA40_Polychor_Analysis1, digits=2, cutoff=.30, sort=FALSE)
+```
+
+```{r}
+dHCP_N1_9_EFA40_Polychor_Analysis2<-factanal(covmat=dHCP_N1_9_EFA40_PolychorMatrix,factors=3,
+                                             rotation="oblimin", fm="mle")
+print(dHCP_N1_9_EFA40_Polychor_Analysis2, digits=2, cutoff=.30, sort=FALSE)
+```
+
+### CFA (dHCP Postnatal sample)
+
+Doing confirmatory factor analysis. Hiding results as they would take up too much space. 
+#### From EFA - 3 FACTOR MODEL
+```{r}
+N1_FA_CFA_Model_3f <- ' depression  =~ N_EPDSQ8 + N_EPDSQ9   
+              anhedonia =~ N_EPDSQ1 + N_EPDSQ2 
+              anxiety  =~ N_EPDSQ3 + N_EPDSQ4 + N_EPDSQ5 '
+```
+
+Fitting the model with WLSMV:
+```{r}
+N1_FA_CFA_Model_3f_fitW <- cfa(N1_FA_CFA_Model_3f, data=dHCP_N1_9_CFA60,estimator="WLSMV", 
+                               ordered=TRUE)
+```
+
+```{r results='hide'}
+summary(N1_FA_CFA_Model_3f_fitW , standardized=TRUE, fit.measures=TRUE)
+```
+
+Fitting the model with MLE:
+```{r}
+N1_FA_CFA_Model_3f_fitM <- cfa(N1_FA_CFA_Model_3f, data=dHCP_N1_9_CFA60)
+```
+
+```{r results='hide'}
+summary(N1_FA_CFA_Model_3f_fitM, standardized=TRUE, fit.measures=TRUE)
+```
+
+#### EFA 2 factor model
+
+From EFA - 2 FACTOR MODEL
+```{r}
+N1_FA_CFA_Model_2f <- ' depression  =~  N_EPDSQ1 + N_EPDSQ2 + N_EPDSQ7 + N_EPDSQ8 + N_EPDSQ9   
+              anxiety  =~ N_EPDSQ3 + N_EPDSQ4 + N_EPDSQ5 '
+```
+
+Fitting the model with WLSMV:
+```{r}
+N1_FA_CFA_Model_2f_fitW <- cfa(N1_FA_CFA_Model_2f, data=dHCP_N1_9_CFA60,estimator="WLSMV", 
+                               ordered=TRUE)
+```
+
+```{r results='hide'}
+summary(N1_FA_CFA_Model_2f_fitW , standardized=TRUE, fit.measures=TRUE)
+```
+
+Fitting the model with MLE:
+```{r}
+N1_FA_CFA_Model_2f_fitM <- cfa(N1_FA_CFA_Model_2f, data=dHCP_N1_9_CFA60)
+```
+
+```{r results='hide'}
+summary(N1_FA_CFA_Model_2f_fitM, standardized=TRUE, fit.measures=TRUE)
+```
+
+
+#### BROWERS 2 Factor Model 
+```{r}
+N1_FA_BROWERS_Model_2f <- ' depression  =~ N_EPDSQ1 + N_EPDSQ2 + N_EPDSQ8  
+            anxiety =~ N_EPDSQ3 + N_EPDSQ4 + N_EPDSQ5'
+```
+
+Fitting the model with WLSMV:
+```{r}
+N1_FA_BROWERS_Model_2f_fitW <- cfa(N1_FA_BROWERS_Model_2f, data=dHCP_N1_9_CFA60,estimator="WLSMV",
+                                   ordered=c("N_EPDSQ1","N_EPDSQ2","N_EPDSQ8","N_EPDSQ3",
+                                             "N_EPDSQ4", "N_EPDSQ5"))
+```
+
+```{r results='hide'}
+summary(N1_FA_BROWERS_Model_2f_fitW , standardized=TRUE, fit.measures=TRUE)
+```
+
+Fitting the model with MLE:
+```{r}
+N1_FA_BROWERS_Model_2f_fitM <- cfa(N1_FA_BROWERS_Model_2f, data=dHCP_N1_9_CFA60)
+```
+
+```{r results='hide'}
+summary(N1_FA_BROWERS_Model_2f_fitM, standardized=TRUE, fit.measures=TRUE)
+```
+
+#### KUBOTA 3 Factor Model 
+```{r}
+N1_FA_KUBOTA_Model_3f <- 'anhedonia =~ N_EPDSQ1 + N_EPDSQ2
+            anxiety =~ N_EPDSQ3 + N_EPDSQ4 + N_EPDSQ5
+            depression  =~ N_EPDSQ7 + N_EPDSQ8 + N_EPDSQ9'
+```
+
+Fitting the model with WLSMV:
+```{r}
+N1_FA_KUBOTA_Model_3f_fitW <- cfa(N1_FA_KUBOTA_Model_3f, data=dHCP_N1_9_CFA60,estimator="WLSMV",
+                                  ordered=c("N_EPDSQ1","N_EPDSQ2","N_EPDSQ3","N_EPDSQ4", 
+                                            "N_EPDSQ5", "N_EPDSQ7", 
+                                            "N_EPDSQ8", "N_EPDSQ9"))
+```
+
+```{r results='hide'}
+summary(N1_FA_KUBOTA_Model_3f_fitW , standardized=TRUE, fit.measures=TRUE)
+```
+
+Fitting the model with MLE:
+```{r}
+N1_FA_KUBOTA_Model_3f_fitM <- cfa(N1_FA_KUBOTA_Model_3f, data=dHCP_N1_9_CFA60)
+```
+
+```{r results='hide'}
+summary(N1_FA_KUBOTA_Model_3f_fitM, standardized=TRUE, fit.measures=TRUE)
+```
+
+#### COX 1 Factor Model 
+```{r}
+N1_FA_COX_Model_1f <- 'depression =~ N_EPDSQ1 + N_EPDSQ2 + N_EPDSQ3 + N_EPDSQ4 + N_EPDSQ5 +
+N_EPDSQ6 + N_EPDSQ7 + N_EPDSQ8 + N_EPDSQ9'
+```
+
+Fitting the model with WLSMV:
+```{r}
+N1_FA_COX_Model_1f_fitW <- cfa(N1_FA_COX_Model_1f, data=dHCP_N1_9_CFA60,estimator="WLSMV", 
+                               ordered=c("N_EPDSQ1","N_EPDSQ2","N_EPDSQ3","N_EPDSQ4", "N_EPDSQ5",
+                                         "N_EPDSQ6", "N_EPDSQ7", 
+                                         "N_EPDSQ8", "N_EPDSQ9"))
+```
+
+```{r results='hide'}
+summary(N1_FA_COX_Model_1f_fitW , standardized=TRUE, fit.measures=TRUE)
+```
+
+Fitting the model with MLE:
+```{r}
+N1_FA_COX_Model_1f_fitM <- cfa(N1_FA_COX_Model_1f, data=dHCP_N1_9_CFA60)
+```
+
+```{r results='hide'}
+summary(N1_FA_COX_Model_1f_fitM, standardized=TRUE, fit.measures=TRUE)
+```
+
+
+#### PHILLIPS 2 Factor Model 
+```{r}
+N1_FA_PHILLIPS_Model_3f <- 'anxiety =~ N_EPDSQ3 + N_EPDSQ4 + N_EPDSQ5
+            depression  =~ N_EPDSQ1 + N_EPDSQ2 + N_EPDSQ6 + N_EPDSQ7 + N_EPDSQ8 + N_EPDSQ9'
+```
+
+Fitting the model with WLSMV:
+```{r}
+N1_FA_PHILLIPS_Model_3f_fitW <- cfa(N1_FA_PHILLIPS_Model_3f, data=dHCP_N1_9_CFA60,estimator="WLSMV",
+                                    ordered=c("N_EPDSQ1","N_EPDSQ2","N_EPDSQ3","N_EPDSQ4",
+                                              "N_EPDSQ5", 
+                                              "N_EPDSQ7", "N_EPDSQ8", "N_EPDSQ9"))
+```
+
+```{r results='hide'}
+summary(N1_FA_PHILLIPS_Model_3f_fitW , standardized=TRUE, fit.measures=TRUE)
+```
+
+Fitting the model with MLE:
+```{r}
+N1_FA_PHILLIPS_Model_3f_fitM <- cfa(N1_FA_PHILLIPS_Model_3f, data=dHCP_N1_9_CFA60)
+```
+
+```{r results='hide'}
+summary(N1_FA_PHILLIPS_Model_3f_fitM, standardized=TRUE, fit.measures=TRUE)
+```
+
+#### ZHONG 2 Factor Model 
+```{r}
+N1_FA_ZHONG_Model_3f <- 'anhedonia =~ N_EPDSQ1 + N_EPDSQ2 
+            depression =~ N_EPDSQ3 + N_EPDSQ4 + N_EPDSQ5 + N_EPDSQ6 + N_EPDSQ7 + N_EPDSQ8 + N_EPDSQ9'
+```
+
+Fitting the model with WLSMV:
+```{r}
+N1_FA_ZHONG_Model_3f_fitW <- cfa(N1_FA_ZHONG_Model_3f, data=dHCP_N1_9_CFA60,estimator="WLSMV",
+                                 ordered=c("N_EPDSQ1","N_EPDSQ2","N_EPDSQ3","N_EPDSQ4", "N_EPDSQ5", 
+                                           "N_EPDSQ7", "N_EPDSQ8", "N_EPDSQ9"))
+```
+
+```{r results='hide'}
+summary(N1_FA_ZHONG_Model_3f_fitW , standardized=TRUE, fit.measures=TRUE)
+```
+
+Fitting the model with MLE:
+```{r}
+N1_FA_ZHONG_Model_3f_fitM <- cfa(N1_FA_ZHONG_Model_3f, data=dHCP_N1_9_CFA60)
+```
+
+```{r results='hide'}
+summary(N1_FA_ZHONG_Model_3f_fitM, standardized=TRUE, fit.measures=TRUE)
+```
+
+#### LAU 3 Factor Model 
+```{r}
+N1_FA_LAU_Model_3f <- 'anhedonia =~ N_EPDSQ1 + N_EPDSQ2 
+            depression =~ N_EPDSQ6 + N_EPDSQ7 + N_EPDSQ8 + N_EPDSQ9
+            anxiety =~ N_EPDSQ3 + N_EPDSQ4 + N_EPDSQ5'
+```
+
+Fitting the model with WLSMV:
+```{r}
+N1_FA_LAU_Model_3f_fitW <- cfa(N1_FA_LAU_Model_3f, data=dHCP_N1_9_CFA60,estimator="WLSMV",
+                               ordered=c("N_EPDSQ1","N_EPDSQ2","N_EPDSQ3","N_EPDSQ4", "N_EPDSQ5", 
+                                         "N_EPDSQ7", "N_EPDSQ8", "N_EPDSQ9"))
+```
+
+```{r results='hide'}
+summary(N1_FA_LAU_Model_3f_fitW , standardized=TRUE, fit.measures=TRUE)
+```
+
+Fitting the model with MLE:
+```{r}
+N1_FA_LAU_Model_3f_fitM <- cfa(N1_FA_LAU_Model_3f, data=dHCP_N1_9_CFA60)
+```
+
+```{r results='hide'}
+summary(N1_FA_LAU_Model_3f_fitM, standardized=TRUE, fit.measures=TRUE)
+```
+
+#### TUOHY 3 Factor Model 
+```{r}
+N1_FA_TUOHY_Model_3f <- 'anhedonia =~ N_EPDSQ1 + N_EPDSQ2 
+            depression =~ N_EPDSQ7 + N_EPDSQ8 + N_EPDSQ9
+            anxiety =~ N_EPDSQ3 + N_EPDSQ4 + N_EPDSQ5'
+```
+
+Fitting the model with WLSMV:
+```{r}
+N1_FA_TUOHY_Model_3f_fitW <- cfa(N1_FA_TUOHY_Model_3f, data=dHCP_N1_9_CFA60,estimator="WLSMV",
+                                 ordered=c("N_EPDSQ1","N_EPDSQ2","N_EPDSQ3","N_EPDSQ4", "N_EPDSQ5", 
+                                           "N_EPDSQ7", "N_EPDSQ8", "N_EPDSQ9"))
+```
+
+```{r results='hide'}
+summary(N1_FA_TUOHY_Model_3f_fitW , standardized=TRUE, fit.measures=TRUE)
+```
+
+Fitting the model with MLE:
+```{r}
+N1_FA_TUOHY_Model_3f_fitM <- cfa(N1_FA_TUOHY_Model_3f, data=dHCP_N1_9_CFA60)
+```
+
+```{r results='hide'}
+summary(N1_FA_TUOHY_Model_3f_fitM, standardized=TRUE, fit.measures=TRUE)
+```
+
+# OVERALL SAMPLE - EXPLORATORY FACTOR ANALYSIS 
+
+## Initial descriptives and setup (overall sample)
+```{r}
+OverallEFA <-read.csv("OverallEFA.csv", header=TRUE, na.strings=c("","NA", " ", "not known"))
+OverallEFAClean <- janitor::remove_empty(OverallEFA, which = "cols") 
+```
+
+```{r results="hide", warning=FALSE, comment=FALSE, message=FALSE}
+((plyr::count(OverallEFAClean$O_EPDS1))*100)/1190
+((plyr::count(OverallEFAClean$O_EPDS2))*100)/1190
+((plyr::count(OverallEFAClean$O_EPDS3))*100)/1190
+((plyr::count(OverallEFAClean$O_EPDS4))*100)/1190
+((plyr::count(OverallEFAClean$O_EPDS5))*100)/1190
+((plyr::count(OverallEFAClean$O_EPDS6))*100)/1190
+((plyr::count(OverallEFAClean$O_EPDS7))*100)/1190
+((plyr::count(OverallEFAClean$O_EPDS8))*100)/1190
+((plyr::count(OverallEFAClean$O_EPDS9))*100)/1190
+((plyr::count(OverallEFAClean$O_EPDS10))*100)/1190
+```
+
+Calculating Cronbach's alpha
+```{r results="hide"}
+psych::alpha(OverallEFAClean)
+```
+
+Calculating McDonald's alpha 
+```{r}
+ci.reliability(OverallEFAClean, type="omega")
+```
+
+
+## FACTOR ANALYSIS (EFA with Polychoric correlation matrix)
+```{r}
+d <- psych::polychoric(OverallEFAClean, correct=FALSE) 
+OverallEFAClean_PolychorMatrix <- d$rho
+``` 
+
+Displaying the correlation matrix using 2 decimal places
+```{r}
+round(OverallEFAClean_PolychorMatrix,2)
+```
+
+Doing Kaiser-Mayer-Olkin (KMO) measure of sampling adequacy
+```{r}
+KMO(OverallEFAClean_PolychorMatrix)
+```
+
+Doing Bartlett's test of sphrericity
+```{r}
+cortest.bartlett(OverallEFAClean_PolychorMatrix,1190)
+```
+
+Calculating the determinant of the correlation matrix
+```{r}
+det(OverallEFAClean_PolychorMatrix)
+```
+
+ Get eigenvalues and scree plot
+```{r}
+ev_OverallEFAClean_PolychorMatrix<- eigen(OverallEFAClean_PolychorMatrix)
+ev_OverallEFAClean_PolychorMatrix
+```
+
+```{r}
+scree_OverallEFAClean_PolychorMatrix  <- scree(OverallEFAClean_PolychorMatrix)
+scree_OverallEFAClean_PolychorMatrix
+```
+
+```{r}
+parallel_OverallEFAClean_PolychorMatrix<-fa.parallel(OverallEFAClean_PolychorMatrix, n.obs=1190,
+                                                     main="Parallel Analysis Scree Plots", fa="fa", 
+                                                     fm="mrfa",cor="poly", quant=.95, SMC=TRUE, 
+                                                     n.iter=50)
+parallel_OverallEFAClean_PolychorMatrix
+```
+
+Doing the exploratory factor analysis now 
+```{r}
+OverallEFAClean_Polychor_Analysis1<-factanal (covmat=OverallEFAClean_PolychorMatrix,factors=2, 
+                                              rotation="oblimin", fm="mle")
+print(OverallEFAClean_Polychor_Analysis1, digits=2, cutoff=.30, sort=FALSE)
+```
+
+
+```{r}
+OverallEFAClean_Polychor_Analysis2<-factanal (covmat=OverallEFAClean_PolychorMatrix,factors=3,
+                                              rotation="oblimin", fm="mle")
+print(OverallEFAClean_Polychor_Analysis2, digits=2, cutoff=.30, sort=FALSE)
+```
+
+# EPDS 3A ANALYSIS 
+
+## EPDS 3A for prenatal timepoint 
+
+Loading both dataframes (for prenatal and postnatal)
+```{r}
+F1_dHCP <-read.csv("F1_DF_Clean.csv", header=TRUE, na.strings=c("","NA", " ", "not known"))
+N1_dHCP <-read.csv("N1_DF_Clean.csv", header=TRUE, na.strings=c("","NA", " ", "not known"))
+```
+
+Descriptives
+```{r}
+F1_dHCP$F_EPDS3A = F1_dHCP$F_EPDSQ3 + F1_dHCP$F_EPDSQ4 + F1_dHCP$F_EPDSQ5 
+psych::describe(F1_dHCP$F_EPDS3A)
+```
+
+Descriptives for each group 
+```{r}
+by(F1_dHCP$F_EPDS3A, F1_dHCP$ANY_ANX, stat.desc, basic = FALSE, norm =TRUE)
+```
+
+How many participants in each group
+```{r}
+F1_dHCP$NoAnx = F1_dHCP$ANY_ANX =="No"
+F1_dHCP$YesAnx = F1_dHCP$ANY_ANX =="Yes"
+summary(F1_dHCP$NoAnx)
+summary(F1_dHCP$YesAnx)
+```
+
+Checking the distribution of scores (to see if they are normally distributed)
+```{r}
+EPDS3A_NoAnx = F1_dHCP$F_EPDS3A[F1_dHCP$ANY_ANX=="No"]
+EPDS3A_YesAnx = F1_dHCP$F_EPDS3A[F1_dHCP$ANY_ANX=="Yes"]
+plotNormalHistogram(EPDS3A_NoAnx)
+plotNormalHistogram(EPDS3A_YesAnx)
+```
+
+How many above threshold
+
+```{r}
+sum(F1_dHCP$F_EPDS3A>3, na.rm=TRUE)
+```
+
+```{r}
+sum(F1_dHCP$F_EPDS3A>5, na.rm=TRUE)
+```
+
+## EPDS 3A for postnatal timepoint 
+
+Descriptives
+```{r}
+N1_dHCP$NoAnx = N1_dHCP$ANY_ANX =="No"
+N1_dHCP$YesAnx = N1_dHCP$ANY_ANX =="Yes"
+summary(N1_dHCP$NoAnx)
+summary(N1_dHCP$YesAnx)
+```
+
+```{r}
+by(N1_dHCP$N_EPDS3A, N1_dHCP$ANY_ANX, stat.desc, basic = FALSE, norm =TRUE)
+```
+
+### EPDS and history 
+
+Loading dataframe specific to plot
+```{r}
+ForPlotF1 <-read.csv("ForPlotF1.csv", header=TRUE, na.strings=c("","NA", " ", "not known"))
+ForPlotF1$participantID <- as.character(ForPlotF1$participantID)
+```
+
+Descriptives
+```{r}
+by(ForPlotF1$F_EPDS3A, ForPlotF1$History, stat.desc, basic = FALSE, norm =TRUE)
+```
+
+```{r}
+ForPlotN1 <-read.csv("ForPlotN1.csv", header=TRUE, na.strings=c("","NA", " ", "not known"))
+ForPlotN1$participantID <- as.character(ForPlotN1$participantID)
+```
+
+```{r}
+by(ForPlotN1$N_EPDS3A, ForPlotN1$History, stat.desc, basic = FALSE, norm =TRUE)
+```
+
+# Qualtrics Plots (Additional questionnaires)
+PSS here stands for Prenatal Stress Study 
+
+Load dataframe 
+```{r}
+PSS <-read.csv("PSS.csv", header=TRUE, na.strings=c("","NA", " ", "not known"))
+```
+
+
+```{r fig.show='hide' , warning=FALSE}
+p6 <- ggplot(PSS, aes(x=F_EPDS3A, y=F_STAI_S_SUM)) + geom_point(aes(colour=F_EPDS3A)) +
+  labs(x="EPDS-3A", y="State Anxiety")+ ylim(10,80)
+p6a <- p6 + scale_colour_hp(option="LunaLovegood")+ geom_smooth(method=lm, colour="#773745") +
+  theme_light() +theme(legend.position = "none",text=element_text(size=15)) 
+p6a
+```
+
+```{r fig.show='hide' , warning=FALSE}
+p7 <- ggplot(PSS, aes(x=F_EPDS3A, y=F_STAI_T_SUM)) + geom_point(aes(colour=F_EPDS3A)) +
+  labs(x="EPDS-3A", y="Trait Anxiety")+ ylim(10,80)
+p7a <- p7 + scale_colour_hp(option="LunaLovegood")+ geom_smooth(method=lm, colour="#773745") +
+  theme_light() +theme(legend.position = "none",text=element_text(size=15)) 
+p7a
+```
+
+```{r fig.show='hide' , warning=FALSE}
+p8<- ggplot(PSS, aes(x=F_EPDS3A, y=F_NUPDQ_TOTAL)) + geom_point(aes(colour=F_EPDS3A)) + 
+  labs(x="EPDS-3A", y="NUPDQ")
+p8a <- p8 + scale_colour_hp(option="LunaLovegood")+ geom_smooth(method=lm, colour="#773745") + 
+  theme_light() +theme(legend.position = "none",text=element_text(size=15)) 
+p8a
+```
+
+```{r fig.show='hide' , warning=FALSE}
+p9<- ggplot(PSS, aes(x=F_EPDS3A, y=F_PSS_TOTAL)) + geom_point(aes(colour=F_EPDS3A)) + 
+  labs(x="EPDS-3A", y="PSS")+ ylim(0,40)
+p9a <- p9 + scale_colour_hp(option="LunaLovegood") + 
+  theme_light() +theme(legend.position = "none",text=element_text(size=15)) 
+p9a
+```
+
+```{r  warning=FALSE}
+grid9a<- plot_grid(p6a, p7a, p8a, p9a)
+grid9a
+```
+
+```{r}
+psych::describe(PSS$F_EPDSTotal)
+```
+
+
+# MAIN DESCRIPTIVES dHCP 
+
+These were done at the beginning of the analysis, but placed here in the script 
+
+```{r}
+dHCP <-read.csv("dHCP_FINAL_use.csv", header=TRUE, na.strings=c("","NA", " ", "not known"))
+```
+
+## Descriptives main database 
+```{r results='hide'}
+str(dHCP,list.len = ncol(dHCP))
+```
+
+Checking variables that I need for descriptives
+```{r}
+summary(dHCP$Highest_Perinatal_EPDS)
+```
+
+```{r}
+summary(dHCP$Higest_F_EPDS) 
+```
+
+```{r}
+summary(dHCP$Highest_N_EPDS)
+```
+
+```{r}
+summary(dHCP$mother_ethnicity.enrolment_1)
+```
+ 
+```{r}
+summary(dHCP$mother_age.enrolment_1)
+```
+
+```{r}
+summary(dHCP$mother_education.enrolment_1)
+```
+
+Not leaving maternal occupation in here, as info can be identifiable. 
+
+```{r}
+summary(dHCP$mother_smokingyn.enrolment_1)
+```
+
+```{r}
+summary(dHCP$mother_alcoholyn.enrolment_1)
+```
+
+```{r}
+summary(dHCP$mother_bmi.enrolment_1)
+```
+
+```{r}
+summary(dHCP$mother_smoking.enrolment_1)
+```
+
+```{r}
+summary(dHCP$baby_ga_at_birth_weeks.baby_born_1)
+```
+
+```{r}
+dHCP$baby_ga_at_birth_weeks.baby_born_1[dHCP$baby_ga_at_birth_weeks.baby_born_1==49.00] <- NA 
+```
+One GA at birth was entered incorrectly. Removed after speaking to database manager. 
+
+```{r}
+summary(dHCP$baby_ga_at_birth_weeks.baby_born_1)
+```
+Max is now 43.57. Fine (checked with database manager
+
+```{r}
+summary(dHCP$baby_gender.baby_born_1)
+```
+
+
+```{r}
+summary(dHCP$fscan_ga_at_scan_weeks.fetal_scan_1)
+```
+The max value is 83.71 which is wrong. Checked with database manager and removed those with GA at scan over 45
+
+```{r}
+dHCP$fscan_ga_at_scan_weeks.fetal_scan_1[dHCP$fscan_ga_at_scan_weeks.fetal_scan_1>=45] <- NA 
+```
+
+```{r}
+summary(dHCP$fscan_ga_at_scan_weeks.fetal_scan_1)
+```
+
+```{r}
+summary(dHCP$fscan_ga_at_scan_weeks.fetal_scan_arm_2)
+```
+
+```{r}
+summary(dHCP$nscan_ga_at_scan_weeks.neonatal_scan_1)
+```
+
+```{r}
+summary(dHCP$nscan_ga_at_scan_weeks.neonatal_scan_arm_2)
+```
+
+```{r}
+summary(dHCP$F_EPDSTotal)
+```
+
+```{r}
+summary(dHCP$F2_EPDSTotal)
+```
+
+```{r}
+summary(dHCP$N_EPDSTotal)
+```
+
+
+```{r}
+summary(dHCP$N2_EPDSTotal)
+```
+
+Changing variable type where needed
+```{r}
+dHCP$participantID <- as.character(dHCP$participantID)
+dHCP$ANY_OTHER <- as.character(dHCP$ANY_OTHER)
+dHCP$PREG_OTHER <- as.character(dHCP$PREG_OTHER)
+dHCP$mother_occupation.enrolment_1 <- as.character(dHCP$mother_occupation.enrolment_1)
+```
+
+```{r}
+EPDS_HOW_MANY <- subset(dHCP, select=c(F_EPDSTotal,N_EPDSTotal,F2_EPDSTotal,N2_EPDSTotal))
+str(EPDS_HOW_MANY)
+```
+
+Now removing empty cells and checking again number of participants
+```{r}
+EPDS_HOW_MANY2 <- janitor::remove_empty(EPDS_HOW_MANY, which = "rows")  
+str(EPDS_HOW_MANY2)
+```
+
+## Subsetting into smaller databases 
+
+After this, we subsetted the main database into the smaller ones used for the analyses above
+```{r}
+F1_DF <- subset(dHCP, select=c(participantID,ANY_DEPR, PREG_DEPR, ANY_ANX, PREG_ANX, ANY_OTHER,
+                               PREG_OTHER,ANY_ANTIDEP,PREG_ANTIDEP,ANY_THER,PREG_THER, 
+                               OVERALL_MoodOrAnx,OVERALL_AnyMH, Higest_F_EPDS, Highest_N_EPDS, 
+                               Highest_Perinatal_EPDS, mother_ethnicity.enrolment_1, 
+                               mother_age.enrolment_1, mother_education.enrolment_1, 
+                               mother_occupation.enrolment_1, 
+                               mother_smokingyn.enrolment_1, mother_alcoholyn.enrolment_1,
+                               mother_bmi.enrolment_1, mother_smoking.enrolment_1,
+                               baby_ga_at_birth_weeks.baby_born_1, baby_gender.baby_born_1,
+                               fscan_ga_at_scan_weeks.fetal_scan_1,
+                               scan_completed.neonatal_scan_1,
+                               scan_completed.neonatal_scan_arm_2,fscan1_completed.fetal_scan_1,
+                               fscan1_completed.fetal_scan_arm_2, F_EPDSQ1, F_EPDSQ2, F_EPDSQ3, F_EPDSQ4, 
+                               F_EPDSQ5, F_EPDSQ6, F_EPDSQ7,
+                               F_EPDSQ8, F_EPDSQ9, F_EPDSQ10, F_EPDSTotal, MQ_EverTreated, 
+                               MQ_EverUnderPsych, MQ_EverAdmitted, MQ_HistoryBunch))
+                               
+F2_DF <- subset(dHCP, select=c(participantID,ANY_DEPR,PREG_DEPR, ANY_ANX,
+                               PREG_ANX,ANY_OTHER,PREG_OTHER,ANY_ANTIDEP,PREG_ANTIDEP,ANY_THER,
+                               PREG_THER, OVERALL_MoodOrAnx,OVERALL_AnyMH,Higest_F_EPDS,
+                               Highest_N_EPDS,
+                               Highest_Perinatal_EPDS,mother_ethnicity.enrolment_1,
+                               mother_age.enrolment_1, mother_education.enrolment_1, 
+                               mother_occupation.enrolment_1,
+                               mother_smokingyn.enrolment_1, mother_alcoholyn.enrolment_1, 
+                               mother_bmi.enrolment_1, mother_smoking.enrolment_1,
+                               baby_ga_at_birth_weeks.baby_born_1,
+                               baby_gender.baby_born_1,fscan_ga_at_scan_weeks.fetal_scan_arm_2, 
+                               scan_completed.neonatal_scan_1, scan_completed.neonatal_scan_arm_2,
+                               fscan1_completed.fetal_scan_1, 
+                               fscan1_completed.fetal_scan_arm_2,F2_EPDSQ1, F2_EPDSQ2, F2_EPDSQ3,
+                               F2_EPDSQ4, F2_EPDSQ5, F2_EPDSQ6, F2_EPDSQ7,
+                               F2_EPDSQ8, F2_EPDSQ9, F2_EPDSQ10, F2_EPDSTotal, MQ_EverTreated, 
+                               MQ_EverUnderPsych, MQ_EverAdmitted, MQ_HistoryBunch))
+
+N1_DF <- subset(dHCP, select=c(participantID,ANY_DEPR,PREG_DEPR, ANY_ANX,
+                               PREG_ANX,ANY_OTHER,PREG_OTHER,ANY_ANTIDEP,PREG_ANTIDEP,
+                               ANY_THER,
+                               PREG_THER, OVERALL_MoodOrAnx,OVERALL_AnyMH,Higest_F_EPDS,
+                               Highest_N_EPDS,
+                               Highest_Perinatal_EPDS,mother_ethnicity.enrolment_1,
+                               mother_age.enrolment_1, mother_education.enrolment_1, 
+                               mother_occupation.enrolment_1,
+                               mother_smokingyn.enrolment_1, mother_alcoholyn.enrolment_1,
+                               mother_bmi.enrolment_1, mother_smoking.enrolment_1,
+                               baby_ga_at_birth_weeks.baby_born_1,
+                               baby_gender.baby_born_1,nscan_ga_at_scan_weeks.neonatal_scan_1, 
+                               scan_completed.neonatal_scan_1,
+                               scan_completed.neonatal_scan_arm_2,fscan1_completed.fetal_scan_1,
+                               fscan1_completed.fetal_scan_arm_2,N_EPDSQ1, N_EPDSQ2, N_EPDSQ3, N_EPDSQ4,
+                               N_EPDSQ5,N_EPDSQ6, N_EPDSQ7,
+                               N_EPDSQ8, N_EPDSQ9, N_EPDSQ10, N_EPDSTotal, MQ_EverTreated,
+                               MQ_EverUnderPsych, MQ_EverAdmitted, MQ_HistoryBunch))
+
+N2_DF <- subset(dHCP, select=c(participantID,ANY_DEPR,PREG_DEPR, ANY_ANX, PREG_ANX,ANY_OTHER,PREG_OTHER,ANY_ANTIDEP,PREG_ANTIDEP,ANY_THER,
+                               PREG_THER, OVERALL_MoodOrAnx,OVERALL_AnyMH,Higest_F_EPDS,
+                               Highest_N_EPDS,
+                               Highest_Perinatal_EPDS, mother_ethnicity.enrolment_1,
+                               mother_age.enrolment_1, mother_education.enrolment_1, 
+                               mother_occupation.enrolment_1,
+                               mother_smokingyn.enrolment_1, mother_alcoholyn.enrolment_1, 
+                               mother_bmi.enrolment_1, mother_smoking.enrolment_1,
+                               baby_ga_at_birth_weeks.baby_born_1, baby_gender.baby_born_1, nscan_ga_at_scan_weeks.neonatal_scan_arm_2, 
+                               scan_completed.neonatal_scan_1, scan_completed.neonatal_scan_arm_2,fscan1_completed.fetal_scan_1,
+                               fscan1_completed.fetal_scan_arm_2, N2_EPDSQ1, N2_EPDSQ2, N2_EPDSQ3,
+                               N2_EPDSQ4, N2_EPDSQ5,N2_EPDSQ6, N2_EPDSQ7,
+                               N2_EPDSQ8, N2_EPDSQ9, N2_EPDSQ10, N2_EPDSTotal, MQ_EverTreated, 
+                               MQ_EverUnderPsych, MQ_EverAdmitted, MQ_HistoryBunch))
+```
+
+
+```{r results='hide'}
+F1_DF_Clean <- F1_DF %>% drop_na(F_EPDSTotal)
+str(F1_DF_Clean)
+```
+
+```{r results='hide'}
+N1_DF_Clean <- N1_DF %>% drop_na(N_EPDSTotal)
+str(N1_DF_Clean)
+```
+
+```{r results='hide'}
+F2_DF_Clean <- F2_DF %>% drop_na(F2_EPDSTotal)
+str(F2_DF_Clean)
+```
+
+```{r results='hide'}
+N2_DF_Clean <- N2_DF %>% drop_na(N2_EPDSTotal)
+str(N2_DF_Clean)
+```
+
+Descriptives EPDS
+```{r}
+psych::describe(F1_DF_Clean$F_EPDSTotal)
+```
+
+```{r}
+psych::describe(N1_DF_Clean$N_EPDSTotal)
+```
+
+```{r}
+psych::describe(F2_DF_Clean$F2_EPDSTotal)
+```
+
+```{r}
+psych::describe(N2_DF_Clean$N2_EPDSTotal)
+```
+
+Calculating how many participants had a score of 11 or more
+```{r}
+sum(F1_DF_Clean$F_EPDSTotal>10, na.rm=TRUE)
+```
+
+```{r}
+sum(N1_DF_Clean$N_EPDSTotal>10, na.rm=TRUE)
+```
+
+```{r}
+sum(F2_DF_Clean$F2_EPDSTotal>10, na.rm=TRUE)
+```
+
+```{r}
+sum(N2_DF_Clean$N2_EPDSTotal>10, na.rm=TRUE)
+```
+
+Calculating how many participants had a score of 13 or more
+
+```{r}
+sum(F1_DF_Clean$F_EPDSTotal>12, na.rm=TRUE)
+```
+
+```{r}
+sum(N1_DF_Clean$N_EPDSTotal>12, na.rm=TRUE)
+```
+
+```{r}
+sum(F2_DF_Clean$F2_EPDSTotal>12, na.rm=TRUE)
+```
+
+```{r}
+sum(N2_DF_Clean$N2_EPDSTotal>12, na.rm=TRUE)
+```
+
+Descriptives for maternal age at EPDS time 
+
+```{r}
+psych::describe(F1_DF_Clean$mother_age.enrolment_1)
+```
+
+```{r}
+psych::describe(F2_DF_Clean$mother_age.enrolment_1)
+```
+
+```{r}
+psych::describe(N1_DF_Clean$mother_age.enrolment_1)
+```
+
+```{r}
+psych::describe(N2_DF_Clean$mother_age.enrolment_1)
+```
+
+Descriptives for baby age at EPDS time 
+```{r}
+psych::describe(F1_DF_Clean$fscan_ga_at_scan_weeks.fetal_scan_1)
+```
+
+```{r}
+psych::describe(F2_DF_Clean$fscan_ga_at_scan_weeks.fetal_scan_arm_2)
+```
+
+```{r}
+psych::describe(N1_DF_Clean$nscan_ga_at_scan_weeks.neonatal_scan_1)
+```
+
+```{r}
+psych::describe(N2_DF_Clean$nscan_ga_at_scan_weeks.neonatal_scan_arm_2)
+```
+
+Descriptives for baby age at birth
+```{r}
+psych::describe(F1_DF_Clean$baby_ga_at_birth_weeks.baby_born_1)
+```
+
+```{r}
+psych::describe(F2_DF_Clean$baby_ga_at_birth_weeks.baby_born_1)
+```
+
+```{r}
+psych::describe(N1_DF_Clean$baby_ga_at_birth_weeks.baby_born_1)
+```
+
+```{r}
+psych::describe(N2_DF_Clean$baby_ga_at_birth_weeks.baby_born_1)
+```
+
+Descriptives for BMI 
+```{r}
+psych::describe(F1_DF_Clean$mother_bmi.enrolment_1)
+```
+
+```{r}
+psych::describe(F2_DF_Clean$mother_bmi.enrolment_1)
+```
+
+```{r}
+psych::describe(N1_DF_Clean$mother_bmi.enrolment_1)
+```
+
+```{r}
+psych::describe(N2_DF_Clean$mother_bmi.enrolment_1)
+```
+
+What other mental health conditions
+```{r}
+F1_DF_Clean$ANY_OTHER <- as.factor(F1_DF_Clean$ANY_OTHER)
+summary(F1_DF_Clean$ANY_OTHER)
+```
+
+History of mental health describe
+```{r}
+summary(F1_DF_Clean$OVERALL_AnyMH)
+summary(F2_DF_Clean$OVERALL_AnyMH)
+summary(N1_DF_Clean$OVERALL_AnyMH)
+summary(N2_DF_Clean$OVERALL_AnyMH)
+```
+
+```{r}
+summary(F1_DF_Clean$ANY_DEPR)
+summary(F2_DF_Clean$ANY_DEPR)
+summary(N1_DF_Clean$ANY_DEPR)
+summary(N2_DF_Clean$ANY_DEPR)
+```
+
+```{r}
+summary(F1_DF_Clean$ANY_ANX)
+summary(F2_DF_Clean$ANY_ANX)
+summary(N1_DF_Clean$ANY_ANX)
+summary(N2_DF_Clean$ANY_ANX)
+```
+
+## Plots
+
+## Calculating EPDS 3A 
+
+```{r}
+F1_DF_Clean$F_EPDS3A = F1_DF_Clean$F_EPDSQ3 + F1_DF_Clean$F_EPDSQ4 + F1_DF_Clean$F_EPDSQ5 
+psych::describe(F1_DF_Clean$F_EPDS3A)
+```
+
+```{r}
+N1_DF_Clean$N_EPDS3A = N1_DF_Clean$N_EPDSQ3 + N1_DF_Clean$N_EPDSQ4 + N1_DF_Clean$N_EPDSQ5 
+psych::describe(N1_DF_Clean$N_EPDS3A)
+```
+
+## More descriptives
+
+```{r}
+summary(F1_DF_Clean$MQ_EverTreated)
+summary(F1_DF_Clean$MQ_EverUnderPsych)
+summary(F1_DF_Clean$MQ_EverAdmitted)
+summary(F1_DF_Clean$MQ_HistoryBunch)
+```
+
+```{r}
+summary(F2_DF_Clean$MQ_EverTreated)
+summary(F2_DF_Clean$MQ_EverUnderPsych)
+summary(F2_DF_Clean$MQ_EverAdmitted)
+summary(F2_DF_Clean$MQ_HistoryBunch)
+```
+
+```{r}
+summary(N1_DF_Clean$MQ_EverTreated)
+summary(N1_DF_Clean$MQ_EverUnderPsych)
+summary(N1_DF_Clean$MQ_EverAdmitted)
+summary(N1_DF_Clean$MQ_HistoryBunch)
+```
+
+```{r}
+summary(N2_DF_Clean$MQ_EverTreated)
+summary(N2_DF_Clean$MQ_EverUnderPsych)
+summary(N2_DF_Clean$MQ_EverAdmitted)
+summary(N2_DF_Clean$MQ_HistoryBunch)
+```
+
+```{r}
+summary(F1_DF_Clean$mother_ethnicity.enrolment_1)
+```
+
+```{r}
+summary(N1_DF_Clean$mother_ethnicity.enrolment_1)
+```
+
+```{r}
+summary(F2_DF_Clean$mother_ethnicity.enrolment_1)
+```
+
+```{r}
+summary(N2_DF_Clean$mother_ethnicity.enrolment_1)
+```
+
+## EPDS and history of mental health
+```{r}
+F1_dHCP$NoMH = F1_dHCP$OVERALL_AnyMH =="No"
+F1_dHCP$YesMH = F1_dHCP$OVERALL_AnyMH =="Yes"
+summary(F1_dHCP$NoMH)
+summary(F1_dHCP$YesMH)
+```
+
+```{r}
+by(F1_dHCP$Higest_F_EPDS, F1_dHCP$OVERALL_AnyMH, stat.desc, basic = FALSE, norm =TRUE)
+```
+
+```{r}
+Highest_F_EPDS_NoMH = F1_dHCP$Higest_F_EPDS[F1_dHCP$OVERALL_AnyMH=="No"]
+Highest_F_EPDS_YesMH = F1_dHCP$Higest_F_EPDS[F1_dHCP$OVERALL_AnyMH=="Yes"]
+plotNormalHistogram(Highest_F_EPDS_NoMH)
+plotNormalHistogram(Highest_F_EPDS_NoMH)
+```
+
+```{r}
+wilcox.test( formula = Higest_F_EPDS~OVERALL_AnyMH, data=F1_dHCP)
+```
+
+```{r}
+library(effsize)
+VD.A(d=F1_dHCP$Higest_F_EPDS,
+     f=F1_dHCP$OVERALL_AnyMH)
+```
+
+```{r}
+N1_dHCP$NoMH = N1_dHCP$OVERALL_AnyMH =="No"
+N1_dHCP$YesMH = N1_dHCP$OVERALL_AnyMH =="Yes"
+summary(N1_dHCP$NoMH)
+summary(N1_dHCP$YesMH)
+```
+
+```{r}
+by(N1_dHCP$Highest_N_EPDS, N1_dHCP$OVERALL_AnyMH, stat.desc, basic = FALSE, norm =TRUE)
+```
+
+```{r}
+Highest_N_EPDS_NoMH = N1_dHCP$Highest_N_EPDS[N1_dHCP$OVERALL_AnyMH=="No"]
+Highest_N_EPDS_YesMH = N1_dHCP$Highest_N_EPDS[N1_dHCP$OVERALL_AnyMH=="Yes"]
+plotNormalHistogram(Highest_N_EPDS_NoMH)
+plotNormalHistogram(Highest_N_EPDS_NoMH)
+```
+
+```{r}
+wilcox.test( formula = Highest_N_EPDS~OVERALL_AnyMH, data=N1_dHCP)
+```
+
+```{r}
+library(effsize)
+VD.A(d=N1_dHCP$Highest_N_EPDS,
+     f=N1_dHCP$OVERALL_AnyMH)
+```
+
+### Plotting the highest fetal and neonatal EPDS scores against history 
+```{r fig.show='hide' , warning=FALSE}
+p13 <- ggplot(F1_dHCP, aes(x=OVERALL_AnyMH, y=Higest_F_EPDS, fill=OVERALL_AnyMH))+
+  geom_violin(trim=TRUE)+labs(x="Mental health history", y="Highest Prenatal EPDS")+ylim(0,30)
+p13a<- p13 + geom_boxplot(width=0.1, fill="white")+scale_fill_manual(values=c("#189ba0", "#a64264")) +
+  theme(legend.position="none", text=element_text(size=15))
+p13a
+```
+
+```{r fig.show='hide' , warning=FALSE}
+p14 <- ggplot(N1_dHCP, aes(x=OVERALL_AnyMH, y=Highest_N_EPDS, fill=OVERALL_AnyMH))+
+  geom_violin(trim=TRUE)+labs(x="Mental health history", y="Highest Postnatal EPDS")+ylim(0,30)
+p14a<- p14 + geom_boxplot(width=0.1, fill="white")+scale_fill_manual(values=c("#189ba0", "#a64264"))+
+theme(legend.position="none", text=element_text(size=15)) 
+p14a
+```
+
+```{r warning=FALSE}
+grid14a <- plot_grid(p13a, p14a)
+grid14a
+```
+
+
+## More descriptives for EPDS 3A 
+
+For the timepoints that were not done above
+```{r}
+F2_DF_Clean$F_EPDS3A = F2_DF_Clean$F2_EPDSQ3 + F2_DF_Clean$F2_EPDSQ4 + F2_DF_Clean$F2_EPDSQ5 
+psych::describe(F2_DF_Clean$F_EPDS3A)
+```
+
+```{r}
+N2_DF_Clean$N_EPDS3A = N2_DF_Clean$N2_EPDSQ3 + N2_DF_Clean$N2_EPDSQ4 + N2_DF_Clean$N2_EPDSQ5 
+psych::describe(N2_DF_Clean$N_EPDS3A)
+```
+
+How many EPDS 3A scores over threshold 
+```{r}
+sum(F1_DF_Clean$F_EPDS3A>3, na.rm=TRUE)
+sum(F2_DF_Clean$F_EPDS3A>3, na.rm=TRUE)
+sum(N1_DF_Clean$N_EPDS3A>3, na.rm=TRUE)
+sum(N2_DF_Clean$N_EPDS3A>3, na.rm=TRUE)
+```
+
+```{r}
+sum(F1_DF_Clean$F_EPDS3A>5, na.rm=TRUE)
+sum(F2_DF_Clean$F_EPDS3A>5, na.rm=TRUE)
+sum(N1_DF_Clean$N_EPDS3A>5, na.rm=TRUE)
+sum(N2_DF_Clean$N_EPDS3A>5, na.rm=TRUE)
+```
+
+How many would have been missed
+```{r}
+length(F1_DF_Clean$participantID[F1_DF_Clean$F_EPDS3A>3 & F1_DF_Clean$F_EPDSTotal<11])
+length(F1_DF_Clean$participantID[F1_DF_Clean$F_EPDS3A>5 & F1_DF_Clean$F_EPDSTotal<11])
+```
+
+```{r}
+length(N1_DF_Clean$participantID[N1_DF_Clean$N_EPDS3A>3 & N1_DF_Clean$N_EPDSTotal<11])
+length(N1_DF_Clean$participantID[N1_DF_Clean$N_EPDS3A>5 & N1_DF_Clean$N_EPDSTotal<11])
+```
+
+How about if using 13 or more as cutoff 
+```{r}
+length(F1_DF_Clean$participantID[F1_DF_Clean$F_EPDS3A>3 & F1_DF_Clean$F_EPDSTotal<13])
+length(F1_DF_Clean$participantID[F1_DF_Clean$F_EPDS3A>5 & F1_DF_Clean$F_EPDSTotal<13])
+```
+
+```{r}
+length(N1_DF_Clean$participantID[N1_DF_Clean$N_EPDS3A>3 & N1_DF_Clean$N_EPDSTotal<13])
+length(N1_DF_Clean$participantID[N1_DF_Clean$N_EPDS3A>5 & N1_DF_Clean$N_EPDSTotal<13])
+```
+
+```{r}
+str(F1_DF_Clean$OVERALL_AnyMH)
+```
+
+
+
+
+
+How much do anxiety and depression overlap 
+```{r}
+length(F1_DF_Clean$participantID[F1_DF_Clean$OVERALL_AnyMH=="No"])
+length(F1_DF_Clean$participantID[F1_DF_Clean$ANY_DEPR=="Yes" & F1_DF_Clean$ANY_ANX=="Yes"])
+length(F1_DF_Clean$participantID[F1_DF_Clean$ANY_DEPR=="Yes" & F1_DF_Clean$ANY_ANX=="No"])
+length(F1_DF_Clean$participantID[F1_DF_Clean$ANY_DEPR=="No" & F1_DF_Clean$ANY_ANX=="Yes"])
+```
+
+```{r}
+length(N1_DF_Clean$participantID[N1_DF_Clean$OVERALL_AnyMH=="No"])
+length(N1_DF_Clean$participantID[N1_DF_Clean$ANY_DEPR=="Yes" & N1_DF_Clean$ANY_ANX=="Yes"])
+length(N1_DF_Clean$participantID[N1_DF_Clean$ANY_DEPR=="Yes" & N1_DF_Clean$ANY_ANX=="No"])
+length(N1_DF_Clean$participantID[N1_DF_Clean$ANY_DEPR=="No" & N1_DF_Clean$ANY_ANX=="Yes"])
+```
+
+Highest EPDS 3A
+
+Fetal 
+```{r}
+Highest_EPDS3A_Fetal <-read.csv("Highest_EPDS3A_Fetal.csv", header=TRUE, na.strings=c("","NA", " ", "not known"))
+```
+
+Descriptives for each group 
+```{r}
+by(Highest_EPDS3A_Fetal$HF_EPDS3A, Highest_EPDS3A_Fetal$ANY_ANX, stat.desc, basic = FALSE, norm =TRUE)
+```
+
+```{r}
+wilcox.test( formula = HF_EPDS3A~ANY_ANX, data=Highest_EPDS3A_Fetal)
+```
+
+Calculating effect size
+```{r}
+VD.A(d=Highest_EPDS3A_Fetal$HF_EPDS3A,
+     f=Highest_EPDS3A_Fetal$ANY_ANX)
+```
+
+```{r fig.show='hide' , warning=FALSE}
+p20 <- ggplot(Highest_EPDS3A_Fetal, aes(x=ANY_ANX, y=HF_EPDS3A, fill=ANY_ANX))+
+  geom_violin(trim=TRUE)+ylim(0,9)+labs(x="Anxiety history", y="Highest Prenatal EPDS 3A")
+p20a<- p20 + geom_boxplot(width=0.1, fill="white")+scale_fill_manual(values=c("#189ba0", "#a64264"))+
+  theme(legend.position="none",text=element_text(size=15))+ scale_y_continuous(breaks=c(0,3,6,9))
+p20a
+```
+
+Neonatal
+```{r}
+Highest_EPDS3A_Neonatal <-read.csv("Highest_EPDS3A_Neonatal.csv", header=TRUE,
+                                   na.strings=c("","NA", " ", "not known"))
+```
+
+Descriptives for each group 
+```{r}
+by(Highest_EPDS3A_Neonatal$HN_EPDS3A, Highest_EPDS3A_Neonatal$ANY_ANX, stat.desc, basic = FALSE, 
+   norm =TRUE)
+```
+
+```{r}
+wilcox.test( formula = HN_EPDS3A~ANY_ANX, data=Highest_EPDS3A_Neonatal)
+```
+
+Calculating effect size
+```{r}
+VD.A(d=Highest_EPDS3A_Neonatal$HN_EPDS3A,
+     f=Highest_EPDS3A_Neonatal$ANY_ANX)
+```
+
+
+[[EXTRA ANALYSIS FOLLOWING PEER REVIEW]]
+Now try the same but for history of depression and history of anxiety 
+
+How many participants with depression, how many with anxiety, how many with both 
+
+For prenatal 
+```{r}
+F1_dHCP <-F1_dHCP %>%
+    mutate(MentalHealthCat = case_when(
+      ANY_DEPR=="Yes" & ANY_ANX=="No" ~ 0,
+      ANY_DEPR=="No" & ANY_ANX=="Yes" ~ 1,
+      ANY_DEPR=="Yes" & ANY_ANX=="Yes" ~ 2, 
+      ANY_DEPR=="No" & ANY_ANX=="No" ~ 3, 
+      TRUE ~ NA_real_
+    )) 
+```
+
+```{r}
+F1_dHCP$MentalHealthCat2 <- factor(F1_dHCP$MentalHealthCat, levels=c(0,1,2,3), 
+                                   labels=c("Depression only", "Anxiety only", "Both", "Neither"))
+summary(F1_dHCP$MentalHealthCat2)
+```
+
+
+
+```{r}
+group_by(F1_dHCP, MentalHealthCat2) %>%
+  summarise(
+    count = n(),
+    mean = mean(Higest_F_EPDS, na.rm = TRUE),
+    sd = sd(Higest_F_EPDS, na.rm = TRUE)
+  )
+```
+
+For postnatal 
+```{r}
+N1_dHCP <-N1_dHCP %>%
+    mutate(MentalHealthCat = case_when(
+      ANY_DEPR=="Yes" & ANY_ANX=="No" ~ 0,
+      ANY_DEPR=="No" & ANY_ANX=="Yes" ~ 1,
+      ANY_DEPR=="Yes" & ANY_ANX=="Yes" ~ 2, 
+      ANY_DEPR=="No" & ANY_ANX=="No" ~ 3, 
+      TRUE ~ NA_real_
+    )) 
+```
+
+```{r}
+N1_dHCP$MentalHealthCat2 <- factor(N1_dHCP$MentalHealthCat, levels=c(0,1,2,3), 
+                                   labels=c("Depression only", "Anxiety only", "Both", "Neither"))
+summary(N1_dHCP$MentalHealthCat2)
+```
+
+
+```{r}
+group_by(N1_dHCP, MentalHealthCat2) %>%
+  summarise(
+    count = n(),
+    mean = mean(Highest_N_EPDS, na.rm = TRUE),
+    sd = sd(Highest_N_EPDS, na.rm = TRUE)
+  )
+```
+
+
+
+For EPDS 3A fetal comparing groups 
+
+```{r}
+Highest_EPDS3A_Fetal <-Highest_EPDS3A_Fetal %>%
+    mutate(MentalHealthCat = case_when(
+      ANY_DEPR=="Yes" & ANY_ANX=="No" ~ 0,
+      ANY_DEPR=="No" & ANY_ANX=="Yes" ~ 1,
+      ANY_DEPR=="Yes" & ANY_ANX=="Yes" ~ 2, 
+      ANY_DEPR=="No" & ANY_ANX=="No" ~ 3, 
+      TRUE ~ NA_real_
+    )) 
+```
+
+```{r}
+Highest_EPDS3A_Fetal$MentalHealthCat2 <- factor(Highest_EPDS3A_Fetal$MentalHealthCat, levels=c(0,1,2,3), labels=c("Depression only", "Anxiety only", "Both", "Neither"))
+summary(Highest_EPDS3A_Fetal$MentalHealthCat2)
+```
+
+
+```{r}
+group_by(Highest_EPDS3A_Fetal, MentalHealthCat2) %>%
+  summarise(
+    count = n(),
+    mean = mean(HF_EPDS3A, na.rm = TRUE),
+    sd = sd(HF_EPDS3A, na.rm = TRUE)
+  )
+```
+
+
+For EPDS 3A neonatal comparing groups 
+
+```{r}
+Highest_EPDS3A_Neonatal <-Highest_EPDS3A_Neonatal %>%
+    mutate(MentalHealthCat = case_when(
+      ANY_DEPR=="Yes" & ANY_ANX=="No" ~ 0,
+      ANY_DEPR=="No" & ANY_ANX=="Yes" ~ 1,
+      ANY_DEPR=="Yes" & ANY_ANX=="Yes" ~ 2, 
+      ANY_DEPR=="No" & ANY_ANX=="No" ~ 3, 
+      TRUE ~ NA_real_
+    )) 
+```
+
+```{r}
+Highest_EPDS3A_Neonatal$MentalHealthCat2 <- factor(Highest_EPDS3A_Neonatal$MentalHealthCat, 
+                                                   levels=c(0,1,2,3), labels=c("Depression only", 
+                                                                               "Anxiety only", "Both", 
+                                                                               "Neither"))
+summary(Highest_EPDS3A_Neonatal$MentalHealthCat2)
+```
+
+
+```{r}
+group_by(Highest_EPDS3A_Neonatal, MentalHealthCat2) %>%
+  summarise(
+    count = n(),
+    mean = mean(HN_EPDS3A, na.rm = TRUE),
+    sd = sd(HN_EPDS3A, na.rm = TRUE)
+  )
+```
+
+
+## Initial descriptives and setup (overall sample)
+```{r}
+OverallEFA9 <-read.csv("OverallEFA9.csv", header=TRUE, na.strings=c("","NA", " ", "not known"))
+OverallEFAClean9 <- janitor::remove_empty(OverallEFA9, which = "cols") 
+```
+
+```{r results="hide", warning=FALSE, comment=FALSE, message=FALSE}
+((plyr::count(OverallEFAClean9$O_EPDS1))*100)/1190
+((plyr::count(OverallEFAClean9$O_EPDS2))*100)/1190
+((plyr::count(OverallEFAClean9$O_EPDS3))*100)/1190
+((plyr::count(OverallEFAClean9$O_EPDS4))*100)/1190
+((plyr::count(OverallEFAClean9$O_EPDS5))*100)/1190
+((plyr::count(OverallEFAClean9$O_EPDS6))*100)/1190
+((plyr::count(OverallEFAClean9$O_EPDS7))*100)/1190
+((plyr::count(OverallEFAClean9$O_EPDS8))*100)/1190
+((plyr::count(OverallEFAClean9$O_EPDS9))*100)/1190
+((plyr::count(OverallEFAClean9$O_EPDS10))*100)/1190
+```
+
+Calculating Cronbach's alpha
+```{r results="hide"}
+psych::alpha(OverallEFAClean9)
+```
+
+Calculating McDonald's alpha 
+```{r}
+ci.reliability(OverallEFAClean9, type="omega")
+```
+
+
+
+Try different figures https://wellcomeopenresearch.org/articles/4-63
+```{r}
+library(gghalves)
+library(PupillometryR)
+```
+
+
+```{r warning=FALSE}
+Raincloud1 <- ggplot(Highest_EPDS3A_Fetal,aes(x=ANY_ANX,y=HF_EPDS3A, fill = ANY_ANX, colour=ANY_ANX))+
+  geom_flat_violin(position = position_nudge(x = .25, y = 0),adjust =1)+
+  geom_point(position = position_jitter(width = .2), size = .2)+
+  geom_boxplot(aes(x = as.numeric(ANY_ANX)+0.25, y =HF_EPDS3A),outlier.shape = NA, alpha = 0.3, width = .1, colour = "BLACK") + ylab('Highest Prenatal EPDS-3A')+xlab('Anxiety history')+theme_cowplot()+guides(fill = FALSE, colour = FALSE)+ scale_y_continuous(breaks=c(0,3,6,9),limits=c(0,9),oob = scales::squish)+scale_fill_manual(values=c("#189ba0", "#a64264"))+scale_colour_manual(values=c("#189ba0", "#a64264"))+theme(legend.position="none",text=element_text(size=15))
+Raincloud1
+```
+
+```{r warning=FALSE}
+
+Raincloud2 <- ggplot(Highest_EPDS3A_Neonatal,aes(x=ANY_ANX,y=HN_EPDS3A, fill = ANY_ANX, colour=ANY_ANX))+
+  geom_flat_violin(position = position_nudge(x = .25, y = 0),adjust =1)+
+  geom_point(position = position_jitter(width = .2), size = .2)+
+  geom_boxplot(aes(x = as.numeric(ANY_ANX)+0.25, y =HN_EPDS3A),outlier.shape = NA, alpha = 0.3, width = .1, colour = "BLACK") + ylab('Highest Postnatal EPDS-3A')+xlab('Anxiety history')+theme_cowplot()+guides(fill = FALSE, colour = FALSE)+ scale_y_continuous(breaks=c(0,3,6,9),limits=c(0,9),oob = scales::squish)+scale_fill_manual(values=c("#189ba0", "#a64264"))+scale_colour_manual(values=c("#189ba0", "#a64264"))+theme(legend.position="none",text=element_text(size=15))
+Raincloud2
+```
+
+```{r warning=FALSE}
+RainFig2 <- plot_grid(Raincloud1, Raincloud2)
+RainFig2
+```
+
+
+
+```{r warning=FALSE}
+Raincloud3 <- ggplot(F1_dHCP,aes(x=OVERALL_AnyMH,y=Higest_F_EPDS, fill = OVERALL_AnyMH, colour=OVERALL_AnyMH))+
+  geom_flat_violin(position = position_nudge(x = .25, y = 0),adjust =1)+
+  geom_point(position = position_jitter(width = .2), size = .2)+
+  geom_boxplot(aes(x = as.numeric(OVERALL_AnyMH)+0.25, y =Higest_F_EPDS),outlier.shape = NA, alpha = 0.3, width = .1, colour = "BLACK") + ylab('Highest Prenatal EPDS')+xlab('Poor mental health history')+theme_cowplot()+guides(fill = FALSE, colour = FALSE)+ scale_y_continuous(breaks=c(0,10,20,30),limits=c(0,30),oob = scales::squish)+scale_fill_manual(values=c("#189ba0", "#a64264"))+scale_colour_manual(values=c("#189ba0", "#a64264"))+theme(legend.position="none",text=element_text(size=15))
+Raincloud3
+```
+
+
+
+
+```{r warning=FALSE}
+Raincloud4 <- ggplot(N1_dHCP,aes(x=OVERALL_AnyMH,y=Highest_N_EPDS, fill = OVERALL_AnyMH, colour=OVERALL_AnyMH))+
+  geom_flat_violin(position = position_nudge(x = .25, y = 0),adjust =1)+
+  geom_point(position = position_jitter(width = .2), size = .2)+
+  geom_boxplot(aes(x = as.numeric(OVERALL_AnyMH)+0.25, y =Highest_N_EPDS),outlier.shape = NA, alpha = 0.3, width = .1, colour = "BLACK") + ylab('Highest Postnatal EPDS')+xlab('Poor mental health history')+theme_cowplot()+guides(fill = FALSE, colour = FALSE)+ scale_y_continuous(breaks=c(0,10,20,30),limits=c(0,30),oob = scales::squish)+scale_fill_manual(values=c("#189ba0", "#a64264"))+scale_colour_manual(values=c("#189ba0", "#a64264"))+theme(legend.position="none",text=element_text(size=15))
+Raincloud4
+```
+
+```{r warning=FALSE}
+RainFig1 <- plot_grid(Raincloud3, Raincloud4)
+RainFig1
+```
+
+Plots for Supplement 
+
+
+```{r warning=FALSE}
+RaincloudSup1 <- ggplot(F1_dHCP,aes(x=MentalHealthCat2,y=Higest_F_EPDS, fill = MentalHealthCat2, colour=MentalHealthCat2))+
+  geom_flat_violin(position = position_nudge(x = .25, y = 0),adjust =1)+
+  geom_point(position = position_jitter(width = .2), size = .2)+
+  geom_boxplot(aes(x = as.numeric(MentalHealthCat2)+0.25, y =Higest_F_EPDS),outlier.shape = NA, alpha = 0.3, width = .1, colour = "BLACK") + ylab('Highest Prenatal EPDS')+xlab('Poor mental health history')+theme_cowplot()+guides(fill = FALSE, colour = FALSE)+ scale_y_continuous(breaks=c(0,10,20,30),limits=c(0,30),oob = scales::squish)+scale_fill_manual(values=c("#189ba0", "#73c1c4", "#a64264", "#830442"))+scale_colour_manual(values=c("#189ba0", "#73c1c4", "#a64264", "#830442"))+theme(legend.position="none",text=element_text(size=15))
+RaincloudSup1
+```
+
+```{r warning=FALSE}
+RaincloudSup2 <- ggplot(N1_dHCP,aes(x=MentalHealthCat2,y=Highest_N_EPDS, fill = MentalHealthCat2, colour=MentalHealthCat2))+
+  geom_flat_violin(position = position_nudge(x = .25, y = 0),adjust =1)+
+  geom_point(position = position_jitter(width = .2), size = .2)+
+  geom_boxplot(aes(x = as.numeric(MentalHealthCat2)+0.25, y =Higest_F_EPDS),outlier.shape = NA, alpha = 0.3, width = .1, colour = "BLACK") + ylab('Highest Postnatal EPDS')+xlab('Poor mental health history')+theme_cowplot()+guides(fill = FALSE, colour = FALSE)+ scale_y_continuous(breaks=c(0,10,20,30),limits=c(0,30),oob = scales::squish)+scale_fill_manual(values=c("#189ba0", "#73c1c4", "#a64264", "#830442"))+scale_colour_manual(values=c("#189ba0", "#73c1c4", "#a64264", "#830442"))+theme(legend.position="none",text=element_text(size=15))
+RaincloudSup2
+```
+
+```{r warning=FALSE}
+RaincloudSup3 <- ggplot(Highest_EPDS3A_Fetal,aes(x=MentalHealthCat2,y=HF_EPDS3A, fill = MentalHealthCat2, colour=MentalHealthCat2))+
+  geom_flat_violin(position = position_nudge(x = .25, y = 0),adjust =1)+
+  geom_point(position = position_jitter(width = .2), size = .2)+
+  geom_boxplot(aes(x = as.numeric(MentalHealthCat2)+0.25, y =HF_EPDS3A),outlier.shape = NA, alpha = 0.3, width = .1, colour = "BLACK") + ylab('Highest Prenatal EPDS-3A')+xlab('Poor mental health history')+theme_cowplot()+guides(fill = FALSE, colour = FALSE)+ scale_y_continuous(breaks=c(0,3,6,9),limits=c(0,9),oob = scales::squish)+scale_fill_manual(values=c("#189ba0", "#73c1c4", "#a64264", "#830442"))+scale_colour_manual(values=c("#189ba0", "#73c1c4", "#a64264", "#830442"))+theme(legend.position="none",text=element_text(size=15))
+RaincloudSup3
+```
+
+```{r warning=FALSE}
+RaincloudSup4 <- ggplot(Highest_EPDS3A_Neonatal,aes(x=MentalHealthCat2,y=HN_EPDS3A, fill = MentalHealthCat2, colour=MentalHealthCat2))+
+  geom_flat_violin(position = position_nudge(x = .25, y = 0),adjust =1)+
+  geom_point(position = position_jitter(width = .2), size = .2)+
+  geom_boxplot(aes(x = as.numeric(MentalHealthCat2)+0.25, y =HN_EPDS3A),outlier.shape = NA, alpha = 0.3, width = .1, colour = "BLACK") + ylab('Highest Postnatal EPDS-3A')+xlab('Poor mental health history')+theme_cowplot()+guides(fill = FALSE, colour = FALSE)+ scale_y_continuous(breaks=c(0,3,6,9),limits=c(0,9),oob = scales::squish)+scale_fill_manual(values=c("#189ba0", "#73c1c4", "#a64264", "#830442"))+scale_colour_manual(values=c("#189ba0", "#73c1c4", "#a64264", "#830442"))+theme(legend.position="none",text=element_text(size=15))
+RaincloudSup4
+```
+
+
+Extra info 
+How many have history of poor mental health and score 11 or more on EPDS 
+```{r}
+length(F1_dHCP$participantID[F1_dHCP$OVERALL_AnyMH=="Yes" & F1_dHCP$Higest_F_EPDS>10])
+```
+
+```{r}
+length(F1_DF_Clean$participantID[F1_DF_Clean$OVERALL_AnyMH=="Yes" & F1_DF_Clean$Higest_F_EPDS<11])
+```
+
+```{r}
+length(F1_DF_Clean$participantID[F1_DF_Clean$OVERALL_AnyMH=="No" & F1_DF_Clean$Higest_F_EPDS>10])
+```
+
+```{r}
+length(F1_DF_Clean$participantID[F1_DF_Clean$OVERALL_AnyMH=="No" & F1_DF_Clean$Higest_F_EPDS<11])
+```
+
+
+```{r}
+length(N1_dHCP$participantID[N1_DF_Clean$OVERALL_AnyMH=="Yes" & N1_dHCP$Highest_N_EPDS>10])
+```
+
+```{r}
+length(N1_dHCP$participantID[N1_DF_Clean$OVERALL_AnyMH=="Yes" & N1_dHCP$Highest_N_EPDS<11])
+```
+
+```{r}
+length(N1_dHCP$participantID[N1_DF_Clean$OVERALL_AnyMH=="No" & N1_dHCP$Highest_N_EPDS>10])
+```
+
+```{r}
+length(N1_dHCP$participantID[N1_DF_Clean$OVERALL_AnyMH=="No" & N1_dHCP$Highest_N_EPDS<11])
+```
+
+
+
+
+
+
+Same but for EPDS-3A
+```{r}
+length(Highest_EPDS3A_Fetal$participantID[Highest_EPDS3A_Fetal$ANY_ANX=="Yes" & Highest_EPDS3A_Fetal$HF_EPDS3A>3])
+```
+
+```{r}
+length(Highest_EPDS3A_Fetal$participantID[Highest_EPDS3A_Fetal$ANY_ANX=="Yes" & Highest_EPDS3A_Fetal$HF_EPDS3A<4])
+```
+
+```{r}
+length(Highest_EPDS3A_Fetal$participantID[Highest_EPDS3A_Fetal$ANY_ANX=="No" & Highest_EPDS3A_Fetal$HF_EPDS3A>3])
+```
+
+```{r}
+length(Highest_EPDS3A_Fetal$participantID[Highest_EPDS3A_Fetal$ANY_ANX=="No" & Highest_EPDS3A_Fetal$HF_EPDS3A<4])
+```
+
+
+```{r}
+length(Highest_EPDS3A_Neonatal$participantID[Highest_EPDS3A_Neonatal$ANY_ANX=="Yes" & Highest_EPDS3A_Neonatal$HN_EPDS3A>3])
+```
+
+```{r}
+length(Highest_EPDS3A_Neonatal$participantID[Highest_EPDS3A_Neonatal$ANY_ANX=="Yes" & Highest_EPDS3A_Neonatal$HN_EPDS3A<4])
+```
+
+```{r}
+length(Highest_EPDS3A_Neonatal$participantID[Highest_EPDS3A_Neonatal$ANY_ANX=="No" & Highest_EPDS3A_Neonatal$HN_EPDS3A>3])
+```
+
+```{r}
+length(Highest_EPDS3A_Neonatal$participantID[Highest_EPDS3A_Neonatal$ANY_ANX=="No" & Highest_EPDS3A_Neonatal$HN_EPDS3A<4])
+```
+
+
+
+
+
+
+# REFERENCES FOR PACKAGES USED
+Factor analysis was performed with 
+```{r results='hide'}
+citation(package = "nFactors")
+citation(package="GPArotation")
+citation(package="lavaan")
+citation (package="MBESS")
+```
+
+Graphs were created with 
+```{r}
+citation(package="ggplot2")
+citation(package="cowplot")
+citation(package="harrypotter")
+```
+
+Data manipulation and calculation of effect sizes was performed with 
+```{r results}
+citation(package = "Hmisc")
+citation(package = "plyr")
+citation(package = "psych")
+citation(package = "dplyr")
+citation(package = "janitor")
+citation(package = "rcompanion")
+citation(package = "pastecs")
+citation(package = "tidyr")
+citation(package = "reshape2")
+citation(package="effsize")
+```
+
+
+
+
+
+
